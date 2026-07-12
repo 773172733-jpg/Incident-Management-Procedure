@@ -1,3 +1,1 @@
-/* activity */
-@import '../../styles/variables.wxss';
-@import '../../styles/common.wxss';
+@import '../../styles/variables.wxss';@import '../../styles/common.wxss';.tab-page{padding-top:env(safe-area-inset-top)}.activity-tabs{display:flex;margin:0 32rpx;padding:8rpx;border-radius:22rpx;background:#EEF0F3}.activity-tab{flex:1;height:64rpx;border-radius:17rpx;color:#8A9099;text-align:center;font-size:25rpx;line-height:64rpx}.activity-tab.selected{background:#fff;color:#FF6B35;font-weight:600;box-shadow:0 4rpx 12rpx rgba(31,35,41,.05)}

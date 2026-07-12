@@ -1,0 +1,1 @@
+<view class="skeleton"><view wx:for="{{rows}}" wx:key="*this" class="skeleton-card"><view class="skeleton-icon shimmer"></view><view class="skeleton-body"><view class="skeleton-title shimmer"></view><view class="skeleton-line shimmer"></view><view class="skeleton-line skeleton-line--short shimmer"></view></view></view></view>

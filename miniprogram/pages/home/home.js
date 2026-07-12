@@ -1,40 +1,14 @@
 const projects = require("../../services/project-service");
-const { projectTimeText } = require("../../utils/format");
+const { projectTimeText, progressText, statusLabel } = require("../../utils/format");
 
 Page({
   data: {
-    loading: false,
+    loading: true,
     error: "",
     filter: "all",
-    items: [
-      {
-        _id: "test1",
-        title: "测试事件 - 学习微信小程序",
-        status: "active",
-        timeMode: "ongoing",
-        startAt: "2026-07-01",
-        progressCache: 60,
-        taskCountCache: 5,
-        completedTaskCountCache: 3,
-        timeText: "持续进行 · 已持续11 天",
-        progressText: "60%",
-        countText: "3/5"
-      },
-      {
-        _id: "test2",
-        title: "测试事件 - 完成项目文档",
-        status: "completed",
-        timeMode: "range",
-        startAt: "2026-06-01",
-        endAt: "2026-07-10",
-        progressCache: 100,
-        taskCountCache: 8,
-        completedTaskCountCache: 8,
-        timeText: "2026.06.01—2026.07.10",
-        progressText: "100%",
-        countText: "8/8"
-      }
-    ],
+    items: [],
+    visibleItems: [],
+    stats: { active: 0, completed: 0 },
     filters: [
       { key: "all", label: "全部" },
       { key: "active", label: "进行中" },
@@ -44,38 +18,87 @@ Page({
   },
 
   onLoad() {
-    console.log("[home] onLoad - hardcoded test data mode");
-    console.log("[home] items:", JSON.stringify(this.data.items));
-    console.log("[home] loading:", this.data.loading);
-    console.log("[home] filter:", this.data.filter);
+    this.load();
   },
 
   onShow() {
-    console.log("[home] onShow");
+    if (this.getTabBar()) this.getTabBar().setData({ selected: 0 });
+    this.load();
   },
 
   async load() {
-    console.log("[home] load called, items count:", this.data.items.length);
-    // No-op: using hardcoded data for testing
+    this.setData({ loading: true, error: "" });
+
+    const res = await projects.list({});
+    if (!res || !res.success) {
+      this.setData({
+        loading: false,
+        error: res && res.message ? res.message : "加载失败，请下拉重试"
+      });
+      return;
+    }
+
+    const rawItems = (res.data && res.data.projects) ? res.data.projects : [];
+    const items = rawItems.map(function(item) {
+      const completed = item.completedTaskCountCache || 0;
+      const total = item.taskCountCache || 0;
+      return {
+        ...item,
+        _id: item._id,
+        title: item.title,
+        status: item.status,
+        timeMode: item.timeMode,
+        startAt: item.startAt,
+        endAt: item.endAt,
+        progressCache: item.progressCache,
+        taskCountCache: total,
+        completedTaskCountCache: completed,
+        timeText: projectTimeText(item),
+        progressText: progressText(completed, total),
+        countText: completed + "/" + total,
+        iconText: (item.title || '事').slice(0, 1),
+        progressValue: Number(item.progressCache) || 0,
+        statusText: statusLabel(item.status),
+        recentText: item.nearestTaskTitle || '暂无临近任务'
+      };
+    });
+    const stats = {
+      active: items.filter(item => item.status === 'active').length,
+      completed: items.filter(item => item.status === 'completed').length
+    };
+    this.setData({ loading: false, items, stats });
+    this.applyFilter();
   },
 
   chooseFilter(e) {
     this.setData({ filter: e.currentTarget.dataset.key });
+    this.applyFilter();
+  },
+
+  applyFilter() {
+    const filter = this.data.filter;
+    const visibleItems = this.data.items.filter(item => {
+      if (filter === 'all') return true;
+      if (filter === 'ongoing') return item.timeMode === 'ongoing' || item.timeMode === 'none';
+      return item.status === filter;
+    });
+    this.setData({ visibleItems });
   },
 
   create() {
-    console.log("[home] create navigate");
     wx.navigateTo({ url: "/pages/project-edit/project-edit" });
   },
 
   detail(e) {
-    const id = e.currentTarget.dataset.id;
-    console.log("[home] detail navigate id=" + id);
+    var id = e.currentTarget.dataset.id;
     wx.navigateTo({ url: "/pages/project-detail/project-detail?id=" + id });
   },
 
   retry() {
-    console.log("[home] retry");
     this.load();
+  },
+
+  onPullDownRefresh() {
+    this.load().finally(() => wx.stopPullDownRefresh());
   }
 });

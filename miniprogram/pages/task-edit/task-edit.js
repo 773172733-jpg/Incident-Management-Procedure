@@ -27,16 +27,25 @@ Page({
     groupId: '',
     groupIndex: -1,
     groups: [],
+    groupName: '未分组',
+    loading: true,
+    error: '',
     saving: false,
     editMode: false
   },
 
-  onLoad(query) {
+  async onLoad(query) {
     const projectId = query.projectId || '';
     const id = query.id || '';
     this.setData({ projectId, id, editMode: !!id });
-    this.loadGroups(projectId);
-    if (id) this.loadTask(id);
+    const results = await Promise.all([this.loadGroups(projectId), id ? this.loadTask(id) : Promise.resolve(true)]);
+    const selectedGroup = this.data.groups.find(item => item._id === this.data.groupId);
+    this.setData({
+      loading: false,
+      error: results.some(result => result === false) ? '表单加载失败，请返回重试' : '',
+      groupIndex: selectedGroup ? this.data.groups.indexOf(selectedGroup) : -1,
+      groupName: selectedGroup ? selectedGroup.name : '未分组'
+    });
   },
 
   async loadGroups(projectId) {
@@ -44,14 +53,16 @@ Page({
     if (res.success) {
       const groups = res.data.groups || [];
       this.setData({ groups });
+      return true;
     }
+    return false;
   },
 
   async loadTask(taskId) {
     const res = await taskService.get(taskId);
     if (!res.success) {
       wx.showToast({ title: res.message, icon: 'none' });
-      return;
+      return false;
     }
     const task = res.data.task;
     // 计算当前选择索引
@@ -59,6 +70,7 @@ Page({
     if (task.priority === 'core') priorityIndex = 0;
     else if (task.priority === 'optional') priorityIndex = 2;
 
+    const group = this.data.groups.find(item => item._id === task.groupId);
     this.setData({
       title: task.title || '',
       note: task.note || '',
@@ -68,8 +80,11 @@ Page({
       dueAt: task.dueAt ? new Date(task.dueAt).toISOString().slice(0, 10) : '',
       startAt: task.startAt ? new Date(task.startAt).toISOString().slice(0, 10) : '',
       endAt: task.endAt ? new Date(task.endAt).toISOString().slice(0, 10) : '',
-      groupId: task.groupId || ''
+      groupId: task.groupId || '',
+      groupIndex: group ? this.data.groups.indexOf(group) : -1,
+      groupName: group ? group.name : '未分组'
     });
+    return true;
   },
 
   // 通用文本输入
@@ -99,7 +114,8 @@ Page({
       const group = this.data.groups[index];
       this.setData({
         groupId: group ? group._id : '',
-        groupIndex: index
+        groupIndex: index,
+        groupName: group ? group.name : '未分组'
       });
     }
   },
@@ -107,6 +123,12 @@ Page({
   // 时间模式切换
   onSwitchMode(e) {
     this.setData({ scheduleType: e.currentTarget.dataset.mode });
+  },
+
+  pickPriority(e) {
+    const value = e.currentTarget.dataset.value;
+    const index = PRIORITY_OPTIONS.findIndex(item => item.value === value);
+    if (index >= 0) this.setData({ priority: value, priorityIndex: index });
   },
 
   // 日期选择

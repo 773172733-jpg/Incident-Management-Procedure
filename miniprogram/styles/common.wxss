@@ -4,7 +4,8 @@
 .page {
   min-height: 100vh;
   background-color: #F7F8FA;
-  padding-bottom: 20px;
+  box-sizing: border-box;
+  padding-bottom: calc(112px + env(safe-area-inset-bottom));
 }
 
 /* 卡片 */
@@ -86,7 +87,7 @@
 
 /* 页面标题区域 */
 .page-header {
-  padding: 20px 16px 12px;
+  padding: 28px 16px 16px;
 }
 .page-header__title {
   font-size: 24px;
@@ -116,4 +117,20 @@
 .empty-state__btn {
   margin-top: 20px;
   width: 180px;
+}
+
+button::after { border: none; }
+
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 22px 16px 12px;
+  color: #1F2329;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.safe-bottom {
+  height: env(safe-area-inset-bottom);
 }

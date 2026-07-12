@@ -1,3 +1,1 @@
-/* archive */
-@import '../../styles/variables.wxss';
-@import '../../styles/common.wxss';
+@import '../../styles/variables.wxss';@import '../../styles/common.wxss';.archive-list{padding:0 32rpx}.archive-card{display:flex;align-items:center;padding:26rpx;margin-bottom:20rpx;border-radius:28rpx;background:#fff;box-shadow:var(--shadow-card)}.archive-icon{position:relative;width:72rpx;height:72rpx;border-radius:22rpx;background:#F1F2F4}.archive-line{position:absolute;left:19rpx;right:19rpx;top:24rpx;height:24rpx;border:4rpx solid #8A9099;border-radius:4rpx}.archive-copy{flex:1;min-width:0;margin-left:20rpx}.archive-title,.archive-meta{display:block}.archive-title{color:#1F2329;font-size:28rpx;font-weight:600}.archive-meta{margin-top:8rpx;color:#8A9099;font-size:21rpx}.restore{height:58rpx;margin:0;padding:0 22rpx;border-radius:18rpx;background:#FFF1EA;color:#FF6B35;font-size:23rpx;line-height:58rpx}

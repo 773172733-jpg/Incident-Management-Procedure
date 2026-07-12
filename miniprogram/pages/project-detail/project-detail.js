@@ -57,7 +57,12 @@ Page({
     }) : [];
 
     this.setData({
-      project: projectRes.data.project,
+      project: {
+        ...projectRes.data.project,
+        timeText: format.projectTimeText(projectRes.data.project),
+        statusText: format.statusLabel(projectRes.data.project.status),
+        iconText: (projectRes.data.project.title || '事').slice(0, 1)
+      },
       tasks: tasks,
       groups: groupRes.success ? groupRes.data.groups : [],
       loading: false,
@@ -80,6 +85,10 @@ Page({
 
   add() {
     wx.navigateTo({ url: '/pages/task-edit/task-edit?projectId=' + this.data.id });
+  },
+
+  back() {
+    wx.navigateBack({ delta: 1 });
   },
 
   edit() {
