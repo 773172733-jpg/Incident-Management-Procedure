@@ -1,4 +1,4 @@
-﻿const projectService = require('../../services/project-service');
+const projectService = require('../../services/project-service');
 const taskService = require('../../services/task-service');
 const groupService = require('../../services/group-service');
 const format = require('../../utils/format');

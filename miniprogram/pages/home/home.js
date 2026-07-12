@@ -1,4 +1,4 @@
-﻿const projects = require("../../services/project-service");
+const projects = require("../../services/project-service");
 const { projectTimeText } = require("../../utils/format");
 
 Page({

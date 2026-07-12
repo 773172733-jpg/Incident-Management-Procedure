@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 事件树 - API 云函数入口
  */
 const router = require('./router');

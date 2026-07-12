@@ -1,4 +1,4 @@
-﻿<view class="page">
+<view class="page">
   <view class="page-header">
     <text class="page-header__title">管理分组</text>
     <text class="page-header__subtitle">调整顺序后自动生效</text>

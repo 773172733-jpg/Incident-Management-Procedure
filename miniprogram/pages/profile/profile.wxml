@@ -1,2 +1,2 @@
-﻿<!-- profile -->
+<!-- profile -->
 <view class="page"><view class="page-header"><view class="page-header__title">我的</view></view><view class="card"><view bindtap="archive">已归档事件</view><view class="divider"></view><view bindtap="recycle">回收站</view></view></view>

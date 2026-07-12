@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 事件树 - 统一响应格式
  */
 function success(data = null, message = '') {

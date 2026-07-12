@@ -1,4 +1,4 @@
-﻿/**
+/**
  * 事件树 - API 路由器
  */
 const userModule = require('./modules/user/index');
