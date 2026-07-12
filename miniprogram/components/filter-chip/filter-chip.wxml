@@ -1,0 +1,1 @@
+<view class="chip chip--{{tone}} {{selected?'chip--selected':''}}" bindtap="onTap"><text>{{label}}</text><text wx:if="{{count>=0}}" class="count">{{count}}</text></view>

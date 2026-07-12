@@ -1,0 +1,1 @@
+Component({properties:{label:{type:String,value:''},value:{type:String,value:''},count:{type:Number,value:-1},selected:{type:Boolean,value:false},tone:{type:String,value:'primary'}},methods:{onTap(){this.triggerEvent('select',{value:this.data.value});}}});

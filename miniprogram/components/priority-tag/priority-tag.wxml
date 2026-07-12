@@ -1,0 +1,1 @@
+<text class="tag tag--{{priority}}">{{label?label:(priority==='core'?'核心':priority==='important'?'重要':'可选')}}</text>
