@@ -1,5 +1,1 @@
-Page({
-  data: {},
-  onLoad() {},
-  onShow() {}
-});
+const p=require('../../services/project-service');Page({data:{items:[],loading:true},onShow(){this.load();},async load(){const r=await p.list({deleted:true});this.setData({items:r.success?r.data.projects:[],loading:false});},async restore(e){const r=await p.restore(e.currentTarget.dataset.id);wx.showToast({title:r.message,icon:r.success?'success':'none'});if(r.success)this.load();}});

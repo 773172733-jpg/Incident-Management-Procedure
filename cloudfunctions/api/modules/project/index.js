@@ -58,7 +58,7 @@ async function get(payload, context) {
 
 async function list(payload, context) {
   const openid = auth.getUserId(context); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
-  const filter = { ownerId: openid, deletedAt: null };
+  const filter = { ownerId: openid, deletedAt: payload.deleted ? _.neq(null) : null };
   if (payload.status) filter.status = payload.status;
   if (payload.timeMode) filter.timeMode = payload.timeMode;
   const res = await db.collection('projects').where(filter).orderBy('updatedAt', 'desc').limit(100).get();
