@@ -1,0 +1,3 @@
+/* archive */
+@import '../../styles/variables.wxss';
+@import '../../styles/common.wxss';

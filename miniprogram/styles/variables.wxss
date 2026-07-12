@@ -1,0 +1,48 @@
+/* 事件树 - 样式变量 */
+page {
+  /* 颜色变量 */
+  --primary: #FF6B35;
+  --primary-light: #FFF1EA;
+  --page-bg: #F7F8FA;
+  --card-bg: #FFFFFF;
+  --text-primary: #1F2329;
+  --text-secondary: #8A9099;
+  --text-disabled: #B8BEC7;
+  --divider: #EEF0F3;
+  --success: #22B573;
+  --warning: #F6B90A;
+  --danger: #F04A4A;
+
+  /* 圆角 */
+  --radius-card: 16px;
+  --radius-btn: 14px;
+  --radius-tag: 999px;
+  --radius-sm: 8px;
+  --radius-xs: 4px;
+
+  /* 阴影 */
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
+  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  /* 间距 */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 12px;
+  --spacing-lg: 16px;
+  --spacing-xl: 20px;
+  --spacing-xxl: 24px;
+  --spacing-huge: 32px;
+
+  /* 字号 */
+  --font-xs: 11px;
+  --font-sm: 12px;
+  --font-md: 14px;
+  --font-lg: 16px;
+  --font-xl: 18px;
+  --font-xxl: 24px;
+
+  /* 字重 */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold: 600;
+}

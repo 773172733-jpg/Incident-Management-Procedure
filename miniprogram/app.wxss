@@ -1,0 +1,7 @@
+/**
+ * 事件树 - 全局样式
+ * 白底、浅灰背景、橙色主色、大留白、圆角卡片、轻阴影
+ */
+@import "./styles/variables.wxss";
+@import "./styles/common.wxss";
+@import "./styles/animations.wxss";

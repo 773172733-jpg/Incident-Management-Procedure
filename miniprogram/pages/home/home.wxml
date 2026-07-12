@@ -1,0 +1,6 @@
+﻿<!-- home -->
+<view class="page">
+  <view class="empty-state">
+    <view class="empty-state__text">正在加载...</view>
+  </view>
+</view>

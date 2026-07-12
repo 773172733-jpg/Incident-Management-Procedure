@@ -1,0 +1,3 @@
+/* project-edit */
+@import '../../styles/variables.wxss';
+@import '../../styles/common.wxss';

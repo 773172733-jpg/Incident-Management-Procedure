@@ -1,0 +1,35 @@
+/**
+ * 事件树 - API 云函数入口
+ */
+const router = require('./router');
+
+// 云函数入口
+exports.main = async (event, context) => {
+  const moduleName = event.module;
+  const action = event.action;
+  const payload = event.payload || {};
+
+  console.log('[api] ' + moduleName + '.' + action + ' called', JSON.stringify(payload).substring(0, 500));
+
+  if (!moduleName || !action) {
+    return {
+      success: false,
+      code: 'INVALID_PARAMS',
+      message: '缺少 module 或 action 参数',
+      data: null
+    };
+  }
+
+  try {
+    const result = await router.dispatch(moduleName, action, payload, context);
+    return result;
+  } catch (err) {
+    console.error('[api] ' + moduleName + '.' + action + ' error:', err);
+    return {
+      success: false,
+      code: 'INTERNAL_ERROR',
+      message: '服务器错误，请稍后重试',
+      data: null
+    };
+  }
+};

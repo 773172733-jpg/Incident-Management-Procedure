@@ -1,0 +1,40 @@
+/**
+ * 事件树 - 颜色常量
+ */
+const COLORS = {
+  // 主色
+  PRIMARY: '#FF6B35',
+  PRIMARY_LIGHT: '#FFF1EA',
+
+  // 背景
+  PAGE_BG: '#F7F8FA',
+  CARD_BG: '#FFFFFF',
+
+  // 文字
+  TEXT_PRIMARY: '#1F2329',
+  TEXT_SECONDARY: '#8A9099',
+  TEXT_DISABLED: '#B8BEC7',
+
+  // 分割线
+  DIVIDER: '#EEF0F3',
+
+  // 功能色
+  SUCCESS: '#22B573',
+  WARNING: '#F6B90A',
+  DANGER: '#F04A4A',
+
+  // 优先级
+  PRIORITY_CORE_BG: '#FFF1F0',
+  PRIORITY_CORE_TEXT: '#F04A4A',
+  PRIORITY_IMPORTANT_BG: '#FFFBE6',
+  PRIORITY_IMPORTANT_TEXT: '#F6B90A',
+  PRIORITY_OPTIONAL_BG: '#F5F5F5',
+  PRIORITY_OPTIONAL_TEXT: '#8A9099',
+
+  // 状态
+  COMPLETED_TEXT: '#B8BEC7',
+  COMPLETED_BG: '#F5F5F5',
+  OVERDUE: '#F04A4A'
+};
+
+module.exports = COLORS;
