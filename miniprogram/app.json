@@ -4,6 +4,7 @@
     "pages/project-detail/project-detail",
     "pages/project-edit/project-edit",
     "pages/task-edit/task-edit",
+    "pages/group-manage/group-manage",
     "pages/calendar/calendar",
     "pages/activity/activity",
     "pages/profile/profile",

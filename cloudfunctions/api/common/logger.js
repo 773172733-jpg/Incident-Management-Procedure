@@ -12,7 +12,7 @@ const db = cloud.database();
  */
 async function writeActivityLog(params) {
   const {
-    projectId, taskId = null, teamId = null,
+    projectId, taskId = null, groupId = null, teamId = null,
     operatorId, actorNameSnapshot = '',
     action, targetType, targetId = '', targetTitleSnapshot = '',
     before = {}, after = {}, metadata = {},
@@ -24,6 +24,7 @@ async function writeActivityLog(params) {
       data: {
         projectId,
         taskId,
+        groupId,
         teamId,
         operatorId,
         actorNameSnapshot,

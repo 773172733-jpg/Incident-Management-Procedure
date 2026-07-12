@@ -17,8 +17,8 @@ function cleanProjectInput(payload) {
   const description = typeof payload.description === 'string' ? payload.description.trim().slice(0, 1000) : '';
   const startAt = payload.startAt ? new Date(payload.startAt) : null;
   const endAt = payload.endAt ? new Date(payload.endAt) : null;
-  if (timeMode.value === TIME_MODE.RANGE && (!startAt || !endAt || endAt < startAt)) return { error: '请正确设置起止日期' };
-  if (timeMode.value === TIME_MODE.ONGOING && !startAt) return { error: '请设置开始日期' };
+  if (timeMode.value === TIME_MODE.RANGE && (!isValidDate(startAt) || !isValidDate(endAt) || endAt < startAt)) return { error: '请正确设置起止日期' };
+  if (timeMode.value === TIME_MODE.ONGOING && !isValidDate(startAt)) return { error: '请设置开始日期' };
   return { data: {
     title: title.value, description, timeMode: timeMode.value,
     startAt: timeMode.value === TIME_MODE.NONE ? null : startAt,
@@ -27,6 +27,7 @@ function cleanProjectInput(payload) {
     themeColor: typeof payload.themeColor === 'string' ? payload.themeColor.slice(0, 16) : '#FF6B35'
   }};
 }
+function isValidDate(value) { return value instanceof Date && !Number.isNaN(value.getTime()); }
 
 async function getOwnedProject(projectId, openid) {
   const res = await db.collection('projects').doc(projectId).get().catch(() => ({ data: null }));

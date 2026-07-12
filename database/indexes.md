@@ -30,6 +30,7 @@
 | projectId + deletedAt + sortOrder | 否 |
 | projectId + status + sortOrder | 否 |
 | ownerId + status + dueAt | 否 |
+| ownerId + deletedAt + updatedAt | 否 |
 | assigneeId + status + dueAt | 否 |
 | parentTaskId + sortOrder | 否 |
 | groupId + sortOrder | 否 |
