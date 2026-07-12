@@ -1,4 +1,4 @@
-const scheduleService = require('../../services/schedule-service');
+const calendarService = require('../../services/calendar-service');
 const taskService = require('../../services/task-service');
 const { priorityLabel, statusLabel } = require('../../utils/format');
 
@@ -8,21 +8,20 @@ Page({
   onShow() { if (this.getTabBar()) this.getTabBar().setData({ selected: 1 }); this.load(); },
   async load() {
     this.setData({ loading: true, error: '' });
-    const res = await scheduleService.listScheduledTasks();
-    if (!res.success) { console.error('[calendar] load failed:', res); return this.setData({ loading: false, error: res.message || '日历加载失败' }); }
-    this.setData({ tasks: (res.data.tasks || []).map(decorateTask), loading: false, error: '' });
+    var res = await calendarService.month({ year: this.data.viewYear, month: this.data.viewMonth + 1 });
+    if (!res.success) { console.error('[calendar] load:', res); return this.setData({ loading: false, error: res.message || '日历加载失败' }); }
+    this.setData({ tasks: (res.data.tasks || []).map(decorateTask), monthDays: (res.data.days || {}), loading: false, error: '' });
     this.renderCalendar();
   },
   retry() { this.load(); },
   previousMonth() { this.changeMonth(-1); },
   nextMonth() { this.changeMonth(1); },
   changeMonth(offset) {
-    const date = new Date(this.data.viewYear, this.data.viewMonth + offset, 1);
-    this.setData({ viewYear: date.getFullYear(), viewMonth: date.getMonth(), selectedKey: dateKey(date), monthChanging: true });
-    this.renderCalendar();
-    setTimeout(() => this.setData({ monthChanging: false }), 160);
+    var d = new Date(this.data.viewYear, this.data.viewMonth + offset, 1);
+    this.setData({ viewYear: d.getFullYear(), viewMonth: d.getMonth(), selectedKey: dateKey(d) });
+    this.load();
   },
-  today() { const now = new Date(); this.setData({ viewYear: now.getFullYear(), viewMonth: now.getMonth(), selectedKey: dateKey(now) }); this.renderCalendar(); },
+  today() { const now = new Date(); this.setData({ viewYear: now.getFullYear(), viewMonth: now.getMonth(), selectedKey: dateKey(now) }); this.load(); },
   selectDay(e) {
     const key = e.currentTarget.dataset.key;
     const date = parseKey(key);
@@ -62,6 +61,7 @@ Page({
     const monthTaskCount = this.data.tasks.filter(task => overlaps(task, monthStart, monthEnd)).length;
     this.setData({ days, selectedTasks, summary, monthTaskCount, monthTitle: `${year}年${month + 1}月`, selectedLabel: selectedDateLabel(this.data.selectedKey) });
   },
+  onPullDownRefresh() { this.load().finally(function(){wx.stopPullDownRefresh();}); },
   openTask(e) { const item = e.detail.item; wx.navigateTo({ url: `/pages/task-edit/task-edit?projectId=${item.projectId}&id=${item._id}` }); },
   async toggleTask(e) {
     const item = e.detail.item;
