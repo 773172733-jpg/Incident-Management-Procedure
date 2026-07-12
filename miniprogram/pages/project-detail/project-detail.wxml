@@ -1,1 +1,93 @@
-<view class="page"><view wx:if="{{loading}}" class="empty-state"><text class="empty-state__text">正在加载…</text></view><view wx:elif="{{error}}" class="empty-state"><text class="empty-state__text">{{error}}</text><button class="btn-secondary empty-state__btn" bindtap="retry">重试</button></view><block wx:elif="{{project}}"><view class="card"><view class="head"><view><text class="title">{{project.title}}</text><text class="sub">{{project.timeMode==='none'?'未设置时间':'进行中'}} · {{project.status==='active'?'进行中':project.status}}</text></view><text class="edit" bindtap="edit">编辑</text></view></view><view class="card"><text class="percent">{{project.progressCache||0}}%</text><text class="sub">已完成 {{project.completedTaskCountCache||0}}/{{project.taskCountCache||0}}</text><view class="bar"><view class="bar-in" style="width:{{project.progressCache||0}}%"></view></view><text wx:if="{{project.taskCountCache>0&&project.progressCache===100}}" class="all-done">全部任务已完成</text></view><scroll-view scroll-x class="tabs"><text class="tab {{groupId==='all'?'selected':''}}" data-id="all" bindtap="group">全部</text><text class="tab {{groupId===''?'selected':''}}" data-id="" bindtap="group">未分组</text><text wx:for="{{groups}}" wx:key="_id" class="tab {{groupId===item._id?'selected':''}}" data-id="{{item._id}}" bindtap="group">{{item.name}}</text><text class="tab manage" bindtap="manageGroups">管理分组</text></scroll-view><view class="priorities"><text wx:for="{{['all','core','important','optional']}}" wx:key="*this" class="tag {{priority===item?'selected':''}}" data-id="{{item}}" bindtap="priority">{{item==='all'?'全部':item==='core'?'核心':item==='important'?'重要':'可选'}}</text></view><view wx:if="{{!tasks.length}}" class="empty-state compact"><text class="empty-state__text">还没有分支任务</text></view><view wx:for="{{tasks}}" wx:key="_id" wx:if="{{(groupId==='all'||item.groupKey===groupId)&&(priority==='all'||item.priority===priority)}}" class="card task {{item.status==='completed'?'done':''}}"><view class="task-main" data-id="{{item._id}}" bindtap="editTask"><text class="tag tag-{{item.priority}}">{{item.priorityText}}</text><text class="task-title">{{item.title}}</text><text class="sub">{{item.note||item.timeText||'未设置时间'}}</text><text wx:if="{{item.completedText}}" class="completed-time">{{item.completedText}}</text></view><view class="task-actions"><button class="check" loading="{{operatingTaskId===item._id}}" data-item="{{item}}" bindtap="toggle">{{item.status==='completed'?'重开':'完成'}}</button><view wx:if="{{groupId!=='all'}}" class="move-row"><button size="mini" disabled="{{sorting}}" data-id="{{item._id}}" data-direction="-1" bindtap="moveTask">上移</button><button size="mini" disabled="{{sorting}}" data-id="{{item._id}}" data-direction="1" bindtap="moveTask">下移</button></view><button class="delete" size="mini" data-item="{{item}}" bindtap="deleteTask">删除</button></view></view><button class="bottom" bindtap="add">添加任务</button></block></view>
+﻿<view class="page">
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="empty-state">
+    <text class="empty-state__text">正在加载…</text>
+  </view>
+
+  <!-- 错误 -->
+  <view wx:elif="{{error}}" class="empty-state">
+    <text class="empty-state__text">{{error}}</text>
+    <button class="btn-secondary empty-state__btn" bindtap="retry">重试</button>
+  </view>
+
+  <!-- 事件内容 -->
+  <block wx:elif="{{project}}">
+    <!-- 事件头部卡片 -->
+    <view class="card">
+      <view class="head">
+        <view>
+          <text class="title">{{project.title}}</text>
+          <text class="sub">
+            {{project.timeMode==='none' ? '未设置时间' : project.timeMode==='ongoing' ? '持续进行' : '进行中'}}
+            · {{project.status==='active' ? '进行中' : project.status==='completed' ? '已结束' : project.status==='archived' ? '已归档' : project.status}}
+          </text>
+        </view>
+        <text class="edit" bindtap="edit">编辑</text>
+      </view>
+    </view>
+
+    <!-- 进度卡片 -->
+    <view class="card">
+      <text class="percent">{{project.progressCache || 0}}%</text>
+      <text class="sub">已完成 {{project.completedTaskCountCache || 0}}/{{project.taskCountCache || 0}} 个任务</text>
+      <view class="bar">
+        <view class="bar-in" style="width:{{project.progressCache || 0}}%"></view>
+      </view>
+      <text wx:if="{{project.taskCountCache > 0 && project.progressCache === 100}}" class="all-done">
+        🎉 全部任务已完成
+      </text>
+    </view>
+
+    <!-- 分组标签 -->
+    <scroll-view scroll-x class="tabs">
+      <text class="tab {{groupId==='all'?'selected':''}}" data-id="all" bindtap="group">全部</text>
+      <text class="tab {{groupId===''?'selected':''}}" data-id="" bindtap="group">未分组</text>
+      <text wx:for="{{groups}}" wx:key="_id"
+        class="tab {{groupId===item._id?'selected':''}}"
+        data-id="{{item._id}}" bindtap="group">{{item.name}}</text>
+      <text class="tab manage" bindtap="manageGroups">管理分组</text>
+    </scroll-view>
+
+    <!-- 优先级筛选 -->
+    <view class="priorities">
+      <text class="tag {{priority==='all'?'selected':''}}" data-id="all" bindtap="priority">全部</text>
+      <text class="tag {{priority==='core'?'selected':''}}" data-id="core" bindtap="priority">核心</text>
+      <text class="tag {{priority==='important'?'selected':''}}" data-id="important" bindtap="priority">重要</text>
+      <text class="tag {{priority==='optional'?'selected':''}}" data-id="optional" bindtap="priority">可选</text>
+    </view>
+
+    <!-- 空状态 -->
+    <view wx:if="{{!filteredTasks.length}}" class="empty-state compact">
+      <text class="empty-state__text">还没有分支任务</text>
+    </view>
+
+    <!-- 任务列表 -->
+    <view wx:for="{{filteredTasks}}" wx:key="_id"
+      class="card task {{item.status==='completed'||item.status==='approved'?'done':''}}">
+
+      <view class="task-main" data-id="{{item._id}}" bindtap="editTask">
+        <text class="tag tag-{{item.priority}}">{{item.priorityText}}</text>
+        <text class="task-title">{{item.title}}</text>
+        <text class="sub">{{item.note || item.timeText || '未设置时间'}}</text>
+        <text wx:if="{{item.completedText}}" class="completed-time">{{item.completedText}}</text>
+      </view>
+
+      <view class="task-actions">
+        <button class="check" loading="{{operatingTaskId===item._id}}"
+          data-item="{{item}}" bindtap="toggle">
+          {{item.status==='completed'||item.status==='approved' ? '重开' : '完成'}}
+        </button>
+        <view wx:if="{{groupId!=='all'}}" class="move-row">
+          <button size="mini" disabled="{{sorting}}"
+            data-id="{{item._id}}" data-direction="-1" bindtap="moveTask">↑</button>
+          <button size="mini" disabled="{{sorting}}"
+            data-id="{{item._id}}" data-direction="1" bindtap="moveTask">↓</button>
+        </view>
+        <button class="delete" size="mini" data-item="{{item}}" bindtap="deleteTask">删除</button>
+      </view>
+    </view>
+
+    <!-- 添加按钮 -->
+    <button class="bottom" bindtap="add">添加任务</button>
+  </block>
+</view>

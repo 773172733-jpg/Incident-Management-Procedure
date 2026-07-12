@@ -1,1 +1,41 @@
-<view class="page"><view class="page-header"><view class="page-header__title">管理分组</view><view class="page-header__subtitle">调整顺序后会自动保存</view></view><view wx:if="{{loading}}" class="empty-state"><text class="empty-state__text">正在加载…</text></view><view wx:elif="{{!groups.length}}" class="empty-state"><text class="empty-state__text">暂无分组，可以先创建一个</text></view><view wx:for="{{groups}}" wx:key="_id" class="card group"><view class="group-main" data-item="{{item}}" bindtap="editGroup"><view class="group-icon" style="background:{{item.color}}"></view><view><view class="group-name">{{item.name}}</view><view class="group-meta">{{item.icon || 'folder'}} · 点击编辑</view></view></view><view class="actions"><button size="mini" disabled="{{index===0||operating}}" data-index="{{index}}" data-direction="-1" bindtap="move">上移</button><button size="mini" disabled="{{index===groups.length-1||operating}}" data-index="{{index}}" data-direction="1" bindtap="move">下移</button><button size="mini" class="danger" data-item="{{item}}" bindtap="deleteGroup">删除</button></view></view><button class="btn-primary add" bindtap="createGroup">新建分组</button></view>
+﻿<view class="page">
+  <view class="page-header">
+    <text class="page-header__title">管理分组</text>
+    <text class="page-header__subtitle">调整顺序后自动生效</text>
+  </view>
+
+  <!-- 加载中 -->
+  <view wx:if="{{loading}}" class="empty-state">
+    <text class="empty-state__text">正在加载…</text>
+  </view>
+
+  <!-- 空状态 -->
+  <view wx:elif="{{!groups.length}}" class="empty-state">
+    <text class="empty-state__text">暂无分组，可以先创建一个</text>
+  </view>
+
+  <!-- 分组列表 -->
+  <view wx:for="{{groups}}" wx:key="_id" class="card group-item">
+    <view class="group-main" data-item="{{item}}" bindtap="editGroup">
+      <view class="group-icon" style="background:{{item.color}}"></view>
+      <view class="group-info">
+        <text class="group-name">{{item.name}}</text>
+        <text class="group-meta">点击编辑名称、颜色和图标</text>
+      </view>
+    </view>
+
+    <view class="group-actions">
+      <button class="action-btn" size="mini" disabled="{{index===0||operating}}"
+        data-index="{{index}}" data-direction="-1" bindtap="move">↑</button>
+      <button class="action-btn" size="mini" disabled="{{index===groups.length-1||operating}}"
+        data-index="{{index}}" data-direction="1" bindtap="move">↓</button>
+      <button class="action-btn danger" size="mini"
+        data-item="{{item}}" bindtap="deleteGroup">删除</button>
+    </view>
+  </view>
+
+  <!-- 底部新建 -->
+  <view class="bottom-bar">
+    <button class="btn-primary" bindtap="createGroup">新建分组</button>
+  </view>
+</view>

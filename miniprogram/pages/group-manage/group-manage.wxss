@@ -1,3 +1,69 @@
+﻿/* 管理分组 */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
-.group{display:flex;align-items:center;justify-content:space-between}.group-main{display:flex;align-items:center;min-width:0;flex:1}.group-icon{width:12px;height:40px;border-radius:8px;margin-right:12px}.group-name{font-size:16px;font-weight:600}.group-meta{font-size:12px;color:#8A9099;margin-top:5px}.actions{display:flex;gap:4px}.actions button{font-size:11px;padding:0 8px}.danger{color:#F04A4A}.add{position:fixed;left:16px;right:16px;bottom:16px}
+
+.group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 16px 8px;
+  padding: 14px 16px;
+}
+.group-main {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+.group-icon {
+  width: 10px;
+  height: 36px;
+  border-radius: 8px;
+  margin-right: 14px;
+  flex-shrink: 0;
+}
+.group-info {
+  min-width: 0;
+}
+.group-name {
+  font-size: 16px;
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+.group-meta {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.group-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+.action-btn {
+  font-size: 11px;
+  padding: 0 8px;
+  line-height: 1.8;
+  background: var(--page-bg);
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 6px;
+}
+.action-btn.danger {
+  color: var(--danger);
+}
+
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px var(--spacing-lg);
+  background: var(--card-bg);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+.bottom-bar .btn-primary {
+  width: 100%;
+}

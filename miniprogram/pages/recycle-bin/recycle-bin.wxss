@@ -1,4 +1,47 @@
-/* recycle-bin */
+﻿/* 回收站 */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
-.section-title{font-size:15px;font-weight:600;color:#1F2329;margin:20px 16px 10px}.recycle-item{display:flex;justify-content:space-between;align-items:center}.item-title{display:block;font-size:15px;font-weight:600}.item-meta{display:block;color:#8A9099;font-size:12px;margin-top:5px}.warning{display:block;color:#F04A4A;font-size:12px;margin-top:5px}.restore{color:#FF6B35;background:#FFF1EA}
+
+.section-title {
+  font-size: 15px;
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+  margin: 20px 16px 10px;
+}
+
+.recycle-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.item-title {
+  display: block;
+  font-size: 15px;
+  font-weight: var(--weight-bold);
+  color: var(--text-primary);
+}
+.item-meta {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 12px;
+  margin-top: 5px;
+}
+.warning {
+  display: block;
+  color: var(--danger);
+  font-size: 12px;
+  margin-top: 5px;
+}
+.restore {
+  color: var(--primary);
+  background: var(--primary-light);
+  border: none;
+  border-radius: 8px;
+  font-size: 12px;
+  padding: 6px 14px;
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+.restore[disabled] {
+  opacity: 0.4;
+}

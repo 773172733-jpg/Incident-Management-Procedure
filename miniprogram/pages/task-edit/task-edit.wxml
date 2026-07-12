@@ -1,1 +1,93 @@
-<view class="page"><view class="card"><text>任务名称</text><input placeholder="输入分支任务" value="{{title}}" data-k="title" bindinput="input"/><text>备注</text><textarea placeholder="可选" value="{{note}}" data-k="note" bindinput="input"/><text>优先级</text><picker range="{{['核心','重要','可选']}}" value="1" bindchange="pickPriority"><view class="picker">{{priority}}</view></picker><text>所属分组</text><picker range="{{groups}}" range-key="name" bindchange="pickGroup"><view class="picker">选择分组（可选）</view></picker><text>时间</text><view class="picker"><text data-v="none" bindtap="mode">不设置</text>　<text data-v="deadline" bindtap="mode">截止</text>　<text data-v="range" bindtap="mode">期间</text></view><picker wx:if="{{scheduleType==='deadline'}}" mode="date" value="{{dueAt}}" data-k="dueAt" bindchange="input"><view class="picker">截止：{{dueAt||'请选择'}}</view></picker><picker wx:if="{{scheduleType==='range'}}" mode="date" value="{{startAt}}" data-k="startAt" bindchange="input"><view class="picker">开始：{{startAt||'请选择'}}</view></picker><picker wx:if="{{scheduleType==='range'}}" mode="date" value="{{endAt}}" data-k="endAt" bindchange="input"><view class="picker">结束：{{endAt||'请选择'}}</view></picker></view><button class="btn-primary save" loading="{{saving}}" bindtap="save">保存任务</button></view>
+﻿<view class="page">
+  <view class="page-header">
+    <text class="page-header__title">{{editMode ? '编辑任务' : '新建任务'}}</text>
+  </view>
+
+  <!-- 基本信息 -->
+  <view class="card">
+    <view class="field">
+      <text class="label">任务名称</text>
+      <input class="input" placeholder="输入分支任务" value="{{title}}" data-key="title" bindinput="onInput" maxlength="60"/>
+    </view>
+
+    <view class="field">
+      <text class="label">备注（可选）</text>
+      <textarea class="textarea" placeholder="补充说明" value="{{note}}" data-key="note" bindinput="onInput" maxlength="500"/>
+    </view>
+  </view>
+
+  <!-- 属性 -->
+  <view class="card">
+    <view class="field">
+      <text class="label">优先级</text>
+      <picker range="{{['核心','重要','可选']}}" value="{{priorityIndex}}" bindchange="onPickPriority">
+        <view class="picker-value">
+          <text class="tag tag-{{priority}}">{{priority==='core'?'核心':priority==='important'?'重要':'可选'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="label">所属分组</text>
+      <picker range="{{groups}}" range-key="name" value="{{groupIndex}}" bindchange="onPickGroup">
+        <view class="picker-value">
+          <text>{{groupId ? '已选择' : '选择分组（可选）'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+
+    <view class="field">
+      <text class="label">时间模式</text>
+      <view class="mode-row">
+        <view class="mode-item {{scheduleType==='none'?'active':''}}" data-mode="none" bindtap="onSwitchMode">
+          <text>不设置</text>
+        </view>
+        <view class="mode-item {{scheduleType==='deadline'?'active':''}}" data-mode="deadline" bindtap="onSwitchMode">
+          <text>截止时间</text>
+        </view>
+        <view class="mode-item {{scheduleType==='range'?'active':''}}" data-mode="range" bindtap="onSwitchMode">
+          <text>起止期间</text>
+        </view>
+      </view>
+    </view>
+
+    <view wx:if="{{scheduleType==='deadline'}}" class="field">
+      <text class="label">截止日期</text>
+      <picker mode="date" value="{{dueAt}}" data-key="dueAt" bindchange="onPickDate">
+        <view class="picker-value">
+          <text>{{dueAt || '请选择截止日期'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+
+    <view wx:if="{{scheduleType==='range'}}" class="field">
+      <text class="label">开始日期</text>
+      <picker mode="date" value="{{startAt}}" data-key="startAt" bindchange="onPickDate">
+        <view class="picker-value">
+          <text>{{startAt || '请选择开始日期'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+
+    <view wx:if="{{scheduleType==='range'}}" class="field">
+      <text class="label">结束日期</text>
+      <picker mode="date" value="{{endAt}}" end="{{startAt}}" data-key="endAt" bindchange="onPickDate">
+        <view class="picker-value">
+          <text>{{endAt || '请选择结束日期'}}</text>
+          <text class="picker-arrow">></text>
+        </view>
+      </picker>
+    </view>
+  </view>
+
+  <!-- 保存 -->
+  <view class="bottom-bar">
+    <button class="btn-primary" loading="{{saving}}" bindtap="onSave">
+      {{editMode ? '保存修改' : '创建任务'}}
+    </button>
+  </view>
+</view>

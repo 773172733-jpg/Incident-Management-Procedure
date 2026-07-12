@@ -1,4 +1,92 @@
-/* task-edit */
+﻿/* 任务编辑页 */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
-.card text{display:block;margin:13px 0 7px}.picker{padding:12px 0;border-bottom:1px solid #EEF0F3}.save{position:fixed;bottom:16px;left:16px;right:16px}
+
+.field {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--divider);
+}
+.field:last-child {
+  border-bottom: none;
+}
+.label {
+  display: block;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.input, .textarea {
+  width: 100%;
+  font-size: 15px;
+  color: var(--text-primary);
+  padding: 0;
+}
+.textarea {
+  min-height: 80px;
+}
+.picker-value {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  color: var(--text-primary);
+}
+.picker-arrow {
+  color: var(--text-disabled);
+  font-size: 14px;
+}
+
+/* 时间模式 */
+.mode-row {
+  display: flex;
+  gap: 8px;
+}
+.mode-item {
+  flex: 1;
+  text-align: center;
+  padding: 10px 0;
+  border-radius: var(--radius-sm);
+  background: var(--page-bg);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.mode-item.active {
+  background: var(--primary-light);
+  color: var(--primary);
+  font-weight: var(--weight-medium);
+}
+
+/* 优先级标签 */
+.tag {
+  display: inline-block;
+  font-size: 12px;
+  padding: 2px 10px;
+  border-radius: var(--radius-tag);
+  font-weight: var(--weight-medium);
+}
+.tag-core {
+  background: #FDE8E8;
+  color: #F04A4A;
+}
+.tag-important {
+  background: #FDF6E0;
+  color: #B8860B;
+}
+.tag-optional {
+  background: #F0F1F3;
+  color: var(--text-secondary);
+}
+
+/* 底部保存 */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px var(--spacing-lg);
+  background: var(--card-bg);
+  box-shadow: 0 -2px 8px rgba(0,0,0,0.04);
+}
+.bottom-bar .btn-primary {
+  width: 100%;
+}
