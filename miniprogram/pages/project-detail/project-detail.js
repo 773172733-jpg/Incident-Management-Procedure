@@ -32,21 +32,12 @@ Page({
   onShow() { if (this.data.id) this.load(); },
 
   async load() {
-    console.log('[project-detail] load start, id=' + this.data.id);
     this.setData({ loading: true, error: '' });
     const [projectRes, taskRes, groupRes] = await Promise.all([
       projectService.get(this.data.id),
       taskService.listByProject(this.data.id),
       groupService.list(this.data.id)
     ]);
-    console.log('[project-detail] load results:', {
-      projectOk: projectRes && projectRes.success,
-      taskOk: taskRes && taskRes.success,
-      groupOk: groupRes && groupRes.success,
-      taskCount: (taskRes && taskRes.data && taskRes.data.tasks) ? taskRes.data.tasks.length : 0,
-      projectTitle: (projectRes && projectRes.data && projectRes.data.project) ? projectRes.data.project.title : null,
-      groupCount: (groupRes && groupRes.data && groupRes.data.groups) ? groupRes.data.groups.length : 0
-    });
     if (!projectRes.success || !taskRes.success || !groupRes.success) {
       const message = projectRes.message || taskRes.message || groupRes.message || '详情加载失败';
       console.error('[project-detail] load failed:', { projectRes, taskRes, groupRes });
@@ -56,12 +47,8 @@ Page({
     const rawProject = projectRes.data.project;
     const project = this.decorateProject(rawProject, taskRes.data.tasks || []);
     const tasks = this.sortTasks((taskRes.data.tasks || []).map(item => this.decorateTask(item)));
-    console.log('[project-detail] decorated tasks count=' + tasks.length + ', first=' + (tasks[0] ? tasks[0].title : 'N/A'));
-    console.log('[project-detail] first task keys:', tasks[0] ? Object.keys(tasks[0]) : 'N/A');
-    console.log('[project-detail] first task title:', tasks[0] ? tasks[0].title : 'N/A', 'status:', tasks[0] ? tasks[0].status : 'N/A', 'priorityText:', tasks[0] ? tasks[0].priorityText : 'N/A');
     this.setData({ project, tasks, groups: groupRes.data.groups || [], loading: false, error: '' });
     this.refreshDerivedData();
-    console.log('[project-detail] data set, filteredTasks count=' + this.data.filteredTasks.length + ', has title:', this.data.filteredTasks[0] ? this.data.filteredTasks[0].title : 'N/A');
   },
 
   decorateProject(project, tasks) {
