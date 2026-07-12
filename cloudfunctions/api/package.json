@@ -4,7 +4,6 @@
   "description": "事件树 - 统一业务云函数",
   "main": "index.js",
   "dependencies": {
-    "@cloudbase/database": "^2.0.0",
-    "wx-server-sdk": "^3.0.0"
+    "wx-server-sdk": "3.0.0"
   }
 }

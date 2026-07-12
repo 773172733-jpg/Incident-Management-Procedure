@@ -4,7 +4,7 @@
 const router = require('./router');
 
 // 云函数入口
-exports.main = async (event, context) => {
+exports.main = async (event = {}, context = {}) => {
   const moduleName = event.module;
   const action = event.action;
   const payload = event.payload || {};
@@ -22,7 +22,21 @@ exports.main = async (event, context) => {
 
   try {
     const result = await router.dispatch(moduleName, action, payload, context);
-    return result;
+    if (!result || typeof result.success !== 'boolean') {
+      console.error('[api] invalid handler response:', moduleName, action, result);
+      return {
+        success: false,
+        code: 'INTERNAL_ERROR',
+        message: '服务器返回格式异常',
+        data: null
+      };
+    }
+    return {
+      success: result.success,
+      code: result.code || (result.success ? 'OK' : 'INTERNAL_ERROR'),
+      message: result.message || '',
+      data: result.data === undefined ? null : result.data
+    };
   } catch (err) {
     console.error('[api] ' + moduleName + '.' + action + ' error:', err);
     return {
