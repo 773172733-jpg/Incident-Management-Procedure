@@ -84,7 +84,10 @@ async function changeStatus(payload, context, status, action, message) {
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
-  await db.collection('projects').doc(project._id).update({ data: { status, updatedAt: db.serverDate() } });
+  const statusData = { status, updatedAt: db.serverDate() };
+  if (status === PROJECT_STATUS.ARCHIVED) statusData.archivedAt = db.serverDate();
+  if (status === PROJECT_STATUS.ACTIVE && project.status === PROJECT_STATUS.ARCHIVED) statusData.archivedAt = null;
+  await db.collection('projects').doc(project._id).update({ data: statusData });
   await writeActivityLog({ projectId: project._id, operatorId: openid, action, targetType: 'project', targetId: project._id, targetTitleSnapshot: project.title, before: { status: project.status }, after: { status }, visibleTo: [openid] });
   return success(null, message);
 }

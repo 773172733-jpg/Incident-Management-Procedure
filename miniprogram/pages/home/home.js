@@ -17,10 +17,6 @@ Page({
     ]
   },
 
-  onLoad() {
-    this.load();
-  },
-
   onShow() {
     if (this.getTabBar()) this.getTabBar().setData({ selected: 0 });
     this.load();
