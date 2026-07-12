@@ -25,7 +25,9 @@ function cleanProjectInput(payload) {
     startAt: timeMode.value === TIME_MODE.NONE ? null : startAt,
     endAt: timeMode.value === TIME_MODE.RANGE ? endAt : null,
     icon: typeof payload.icon === 'string' ? payload.icon.slice(0, 24) : 'circle',
-    themeColor: typeof payload.themeColor === 'string' ? payload.themeColor.slice(0, 16) : '#FF6B35'
+    themeColor: typeof payload.themeColor === 'string' ? payload.themeColor.slice(0, 16) : '#FF6B35',
+    iconType: payload.iconType === 'emoji' ? 'emoji' : 'text',
+    iconValue: typeof payload.iconValue === 'string' ? payload.iconValue.trim().slice(0, 4) : ''
   }};
 }
 function isValidDate(value) { return value instanceof Date && !Number.isNaN(value.getTime()); }

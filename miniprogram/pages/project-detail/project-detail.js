@@ -63,7 +63,7 @@ Page({
       taskCountCache: project.taskCountCache || 0,
       timeText: format.projectTimeText(project),
       statusText: format.statusLabel(project.status),
-      iconText: (project.title || '事').slice(0, 1),
+      iconText: project.iconValue || (project.title || '事').slice(0, 1),
       nearestTaskText: project.status === 'completed'
         ? `已结束 · 已完成 ${project.completedTaskCountCache || 0}/${project.taskCountCache || 0}`
         : nearest ? `最近截止：${nearest.title}` : (tasks.length ? '暂无临近任务' : '还没有分支任务')

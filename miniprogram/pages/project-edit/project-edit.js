@@ -2,7 +2,7 @@ const service = require('../../services/project-service');
 const validator = require('../../utils/validator');
 
 Page({
-  data: { id: '', title: '', description: '', timeMode: 'none', startAt: '', endAt: '', saving: false, loading: false, error: '' },
+  data: { id: '', title: '', description: '', timeMode: 'none', startAt: '', endAt: '', saving: false, loading: false, error: '', iconType: 'text', iconValue: '', emojis: ['🏠','📚','✏️','🎨','💪','🎵','🌍','🛒','💼','🎮','💡','🌱','🍳','🎬','📷','🔧','🎯','🏃','🌿','💻'] },
   async onLoad(query) {
     if (!query.id) return;
     this.setData({ id: query.id, loading: true, error: '' });
@@ -19,6 +19,7 @@ Page({
   },
   input(e) { this.setData({ [e.currentTarget.dataset.key]: e.detail.value }); },
   mode(e) { this.setData({ timeMode: e.currentTarget.dataset.mode }); },
+  chooseIcon(e) { var v=e.currentTarget.dataset.value; this.setData({iconType:'emoji',iconValue:v}); },
   retry() { this.onLoad({ id: this.data.id }); },
   async save() {
     if (this.data.saving) return;
@@ -32,7 +33,9 @@ Page({
       startAt: this.data.startAt,
       endAt: this.data.endAt,
       icon: this.data.icon,
-      themeColor: this.data.themeColor
+      themeColor: this.data.themeColor,
+      iconType: this.data.iconType,
+      iconValue: this.data.iconValue
     };
     const res = this.data.id ? await service.update(this.data.id, payload) : await service.create(payload);
     this.setData({ saving: false });

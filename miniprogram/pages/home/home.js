@@ -52,7 +52,7 @@ Page({
         timeText: projectTimeText(item),
         progressText: progressText(completed, total),
         countText: completed + "/" + total,
-        iconText: (item.title || '事').slice(0, 1),
+        iconText: item.iconValue || (item.title || '事').slice(0, 1),
         progressValue: Number(item.progressCache) || 0,
         statusText: statusLabel(item.status),
         recentText: item.status === 'completed'

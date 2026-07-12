@@ -11,7 +11,7 @@ Page({
     if (!res.success) { console.error('[archive] list failed:', res); return this.setData({ loading: false, error: res.message || '归档列表加载失败' }); }
     const items = (res.data.projects || []).map(item => ({
       ...item,
-      iconText: (item.title || '事').slice(0, 1),
+      iconText: item.iconValue || (item.title || '事').slice(0, 1),
       timeText: projectTimeText(item),
       stateText: '已归档',
       progressValue: Math.max(0, Math.min(100, Number(item.progressCache) || 0)),

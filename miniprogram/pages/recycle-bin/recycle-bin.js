@@ -14,7 +14,7 @@ Page({
       return this.setData({ loading: false, error: projectRes.message || taskRes.message || '回收站加载失败' });
     }
     const projects = (projectRes.data.projects || []).map(item => ({
-      ...item, iconText: (item.title || '事').slice(0, 1), timeText: `删除于 ${formatDateTime(item.deletedAt)}`,
+      ...item, iconText: item.iconValue || (item.title || '事').slice(0, 1), timeText: `删除于 ${formatDateTime(item.deletedAt)}`,
       stateText: statusLabel(item.status), extraText: `原进度 ${Math.max(0, Math.min(100, Number(item.progressCache) || 0))}%`
     }));
     const tasks = (taskRes.data.tasks || []).map(item => ({
