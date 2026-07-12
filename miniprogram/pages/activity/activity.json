@@ -1,1 +1,9 @@
-{"usingComponents":{"empty-state":"/components/empty-state/empty-state","loading-skeleton":"/components/loading-skeleton/loading-skeleton","section-title":"/components/section-title/section-title","schedule-task-card":"/components/schedule-task-card/schedule-task-card"}}
+{
+  "usingComponents": {
+    "empty-state": "/components/empty-state/empty-state",
+    "loading-skeleton": "/components/loading-skeleton/loading-skeleton",
+    "section-title": "/components/section-title/section-title",
+    "schedule-task-card": "/components/schedule-task-card/schedule-task-card"
+  },
+  "enablePullDownRefresh": true
+}
