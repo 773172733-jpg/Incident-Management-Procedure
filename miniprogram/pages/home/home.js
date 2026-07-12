@@ -36,8 +36,8 @@ Page({
 
     const rawItems = (res.data && res.data.projects) ? res.data.projects : [];
     const items = rawItems.map(function(item) {
-      const completed = item.completedTaskCountCache || 0;
-      const total = item.taskCountCache || 0;
+      const completed = Number(item.completedTaskCountCache) || 0;
+      const total = Number(item.taskCountCache) || 0;
       return {
         ...item,
         _id: item._id,
@@ -55,7 +55,9 @@ Page({
         iconText: (item.title || '事').slice(0, 1),
         progressValue: Number(item.progressCache) || 0,
         statusText: statusLabel(item.status),
-        recentText: item.nearestTaskTitle || '暂无临近任务'
+        recentText: item.status === 'completed'
+          ? '已结束 · 已完成 ' + completed + '/' + total
+          : (item.nearestTaskTitle || '暂无临近任务')
       };
     });
     const stats = {

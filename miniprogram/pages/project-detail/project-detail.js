@@ -59,10 +59,14 @@ Page({
     return {
       ...project,
       progressCache: progress,
+      completedTaskCountCache: project.completedTaskCountCache || 0,
+      taskCountCache: project.taskCountCache || 0,
       timeText: format.projectTimeText(project),
       statusText: format.statusLabel(project.status),
       iconText: (project.title || '事').slice(0, 1),
-      nearestTaskText: nearest ? `最近截止：${nearest.title}` : '暂无临近任务'
+      nearestTaskText: project.status === 'completed'
+        ? `已结束 · 已完成 ${project.completedTaskCountCache || 0}/${project.taskCountCache || 0}`
+        : nearest ? `最近截止：${nearest.title}` : (tasks.length ? '暂无临近任务' : '还没有分支任务')
     };
   },
 
@@ -108,7 +112,9 @@ Page({
       hasActiveFilter: this.data.groupId !== 'all' || this.data.priority !== 'all',
       project: this.data.project ? {
         ...this.data.project,
-        nearestTaskText: nearest ? `最近截止：${nearest.title}` : (tasks.length ? '暂无临近任务' : '还没有分支任务')
+        nearestTaskText: this.data.project.status === 'completed'
+          ? `已结束 · 已完成 ${this.data.project.completedTaskCountCache || 0}/${this.data.project.taskCountCache || 0}`
+          : nearest ? `最近截止：${nearest.title}` : (tasks.length ? '暂无临近任务' : '还没有分支任务')
       } : null
     });
   },
@@ -123,11 +129,57 @@ Page({
   editTask(e) { const task = e.detail ? e.detail.item : e.currentTarget.dataset.item; wx.navigateTo({ url: `/pages/task-edit/task-edit?projectId=${this.data.id}&id=${task._id}` }); },
 
   async showProjectMenu() {
-    const result = await actionSheet(['编辑事件', '归档事件', '删除事件']);
+    const items = ['编辑事件'];
+    const project = this.data.project;
+    if (project && project.status === 'active') items.push('结束事件');
+    if (project && project.status === 'completed') items.push('重新打开');
+    items.push('归档事件', '删除事件');
+    const result = await actionSheet(items);
     if (result < 0) return;
     if (result === 0) return this.edit();
-    if (result === 1) return this.archiveProject();
-    return this.deleteProject();
+    let index = 1;
+    if (project && project.status === 'active') {
+      if (result === index) return this.completeProject();
+      index++;
+    }
+    if (project && project.status === 'completed') {
+      if (result === index) return this.reopenProject();
+      index++;
+    }
+    if (result === index) return this.archiveProject();
+    if (result === index + 1) return this.deleteProject();
+  },
+
+  async completeProject() {
+    const project = this.data.project;
+    const taskRes = await taskService.listByProject(this.data.id);
+    const incompleteTasks = taskRes.success ? (taskRes.data.tasks || []).filter(item => item.status === 'todo' || item.status === 'doing') : [];
+    const incompleteCount = incompleteTasks.length;
+
+    if (incompleteCount > 0) {
+      const confirmed = await confirmModal('提前结束事件',
+        `当前还有 ${incompleteCount} 个未完成分支。结束事件后，它们会显示为"随事件结束"，不会算作已完成。`,
+        '#F04A4A'
+      );
+      if (!confirmed) return;
+    } else {
+      const confirmed = await confirmModal('结束事件',
+        '所有分支任务已完成，确认结束此事件？'
+      );
+      if (!confirmed) return;
+    }
+
+    const res = await projectService.complete(this.data.id, incompleteCount > 0);
+    wx.showToast({ title: res.message || '事件已结束', icon: res.success ? 'success' : 'none' });
+    if (res.success) this.load();
+  },
+
+  async reopenProject() {
+    const confirmed = await confirmModal('重新打开事件', '重新打开后，随事件关闭的分支会恢复为之前的状态。');
+    if (!confirmed) return;
+    const res = await projectService.reopen(this.data.id);
+    wx.showToast({ title: res.message || '事件已重新打开', icon: res.success ? 'success' : 'none' });
+    if (res.success) this.load();
   },
 
   async archiveProject() {

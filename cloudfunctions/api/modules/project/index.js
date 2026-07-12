@@ -1,4 +1,4 @@
-const cloud = require('wx-server-sdk');
+﻿const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
@@ -6,8 +6,9 @@ const auth = require('../../common/auth');
 const permission = require('../../common/permission');
 const { success, fail } = require('../../common/response');
 const { validateProjectTitle, validateTimeMode, validateObjectId } = require('../../common/validator');
-const { TIME_MODE, PROJECT_STATUS } = require('../../common/constants');
+const { TIME_MODE, PROJECT_STATUS, TASK_STATUS } = require('../../common/constants');
 const { writeActivityLog } = require('../../common/logger');
+const { recalculateProjectProgress } = require('../../common/project-progress');
 
 function cleanProjectInput(payload) {
   const title = validateProjectTitle(payload.title);
@@ -42,7 +43,9 @@ async function create(payload, context) {
     ...parsed.data, ownerId: openid, creatorId: openid, assigneeId: openid,
     teamId: null, sourceType: 'personal', visibility: 'private', approvalRequired: false,
     status: PROJECT_STATUS.ACTIVE, deletedAt: null, taskCountCache: 0,
-    completedTaskCountCache: 0, progressCache: 0, createdAt: db.serverDate(), updatedAt: db.serverDate(), version: 1
+    completedTaskCountCache: 0, progressCache: 0,
+    completedAt: null, completedBy: null, completedEarly: false,
+    createdAt: db.serverDate(), updatedAt: db.serverDate(), version: 1
   };
   const result = await db.collection('projects').add({ data: doc });
   await writeActivityLog({ projectId: result._id, operatorId: openid, action: 'project.created', targetType: 'project', targetId: result._id, targetTitleSnapshot: doc.title, after: parsed.data, visibleTo: [openid] });
@@ -59,10 +62,16 @@ async function get(payload, context) {
 
 async function list(payload, context) {
   const openid = auth.getUserId(context); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
-  const filter = { ownerId: openid, deletedAt: payload.deleted ? _.neq(null) : null };
+  const deletedMode = payload.deletedMode || 'active';
+  const filter = { ownerId: openid };
+  if (deletedMode === 'active') filter.deletedAt = _.eq(null);
+  else if (deletedMode === 'deleted') filter.deletedAt = _.neq(null);
   if (payload.status) filter.status = payload.status;
   if (payload.timeMode) filter.timeMode = payload.timeMode;
-  const res = await db.collection('projects').where(filter).orderBy('updatedAt', 'desc').limit(100).get();
+  const page = Math.max(1, Number(payload.page) || 1);
+  const pageSize = Math.min(100, Math.max(1, Number(payload.pageSize) || 20));
+  const skip = (page - 1) * pageSize;
+  const res = await db.collection('projects').where(filter).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
   return success({ projects: res.data });
 }
 
@@ -112,21 +121,167 @@ async function restore(payload, context) {
   return success(null, '事件已恢复');
 }
 
-async function recalculateProgress(projectId, openid) {
-  const valid = { projectId, deletedAt: null, status: _.nin(['cancelled', 'closed_by_parent']) };
-  const tasks = await db.collection('tasks').where(valid).get();
-  const total = tasks.data.length;
-  const completed = tasks.data.filter(item => item.status === 'completed' || item.status === 'approved').length;
-  const progress = total ? Math.round(completed * 100 / total) : 0;
-  await db.collection('projects').doc(projectId).update({ data: { taskCountCache: total, completedTaskCountCache: completed, progressCache: progress, updatedAt: db.serverDate() } });
-  return { taskCount: total, completedTaskCount: completed, progress };
+async function complete(payload, context) {
+  const openid = auth.getUserId(context); const check = validateObjectId(payload.projectId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
+  const project = await getOwnedProject(check.value, openid);
+  if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
+  if (project.status === PROJECT_STATUS.COMPLETED) return fail('PROJECT_ALREADY_COMPLETED', '事件已结束');
+
+  const confirmEarly = payload.confirmEarly === true;
+  const hasIncomplete = confirmEarly;
+
+  if (hasIncomplete) {
+    const incompleteTasks = await db.collection('tasks').where({
+      projectId: project._id, deletedAt: _.eq(null),
+      status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
+    }).get();
+
+    if (incompleteTasks.data.length > 0 && !confirmEarly) {
+      return fail('HAS_INCOMPLETE_TASKS', '还有未完成任务，请确认是否提前结束');
+    }
+  }
+
+  const now = db.serverDate();
+  const updateData = {
+    status: PROJECT_STATUS.COMPLETED,
+    completedAt: now,
+    completedBy: openid,
+    completedEarly: hasIncomplete,
+    updatedAt: now
+  };
+
+  await db.collection('projects').doc(project._id).update({ data: updateData });
+
+  if (hasIncomplete) {
+    const incompleteTasks = await db.collection('tasks').where({
+      projectId: project._id, deletedAt: _.eq(null),
+      status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
+    }).get();
+
+    const batch = db.collection('tasks').where({
+      _id: _.in(incompleteTasks.data.map(t => t._id))
+    }).update({
+      data: {
+        status: TASK_STATUS.CLOSED_BY_PARENT,
+        statusBeforeParentClose: db.command.set(db.serverDate()),
+        closedAt: now,
+        closedBy: openid,
+        updatedAt: db.serverDate()
+      }
+    });
+    try { await batch; } catch (e) { console.error('[project.complete] batch close tasks failed:', e); }
+
+    for (const task of incompleteTasks.data) {
+      try {
+        await writeActivityLog({
+          projectId: project._id, taskId: task._id,
+          operatorId: openid, action: 'task.closed_by_parent',
+          targetType: 'task', targetId: task._id,
+          targetTitleSnapshot: task.title,
+          before: { status: task.status },
+          after: { status: TASK_STATUS.CLOSED_BY_PARENT, closedAt: 'serverDate' },
+          visibleTo: [openid]
+        });
+      } catch (logErr) {
+        console.warn('[project.complete] log task closed failed:', logErr.message);
+      }
+    }
+  }
+
+  const progress = await recalculateProjectProgress(project._id);
+
+  const action = hasIncomplete ? 'project.completed_early' : 'project.completed';
+  await writeActivityLog({
+    projectId: project._id, operatorId: openid, action,
+    targetType: 'project', targetId: project._id,
+    targetTitleSnapshot: project.title,
+    before: { status: project.status, completedEarly: false },
+    after: { status: PROJECT_STATUS.COMPLETED, completedEarly: hasIncomplete },
+    metadata: { incompleteCount: hasIncomplete ? (incompleteTasks ? incompleteTasks.data.length : 0) : 0 },
+    visibleTo: [openid]
+  });
+
+  return success({ progress }, hasIncomplete ? '事件已提前结束' : '事件已结束');
+}
+
+async function reopen(payload, context) {
+  const openid = auth.getUserId(context); const check = validateObjectId(payload.projectId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
+  const project = await getOwnedProject(check.value, openid);
+  if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
+  if (project.status !== PROJECT_STATUS.COMPLETED) return fail('INVALID_PARAMS', '只有已结束的事件才能重新打开');
+
+  const updateData = {
+    status: PROJECT_STATUS.ACTIVE,
+    completedAt: null, completedBy: null,
+    completedEarly: false,
+    updatedAt: db.serverDate()
+  };
+  await db.collection('projects').doc(project._id).update({ data: updateData });
+
+  const closedTasks = await db.collection('tasks').where({
+    projectId: project._id, deletedAt: _.eq(null),
+    status: TASK_STATUS.CLOSED_BY_PARENT
+  }).get();
+
+  for (const task of closedTasks.data) {
+    const previousStatus = task.statusBeforeParentClose || TASK_STATUS.TODO;
+    try {
+      await db.collection('tasks').doc(task._id).update({
+        data: {
+          status: previousStatus,
+          statusBeforeParentClose: null,
+          closedAt: null, closedBy: null,
+          updatedAt: db.serverDate()
+        }
+      });
+    } catch (e) {
+      console.warn('[project.reopen] restore task failed:', task._id, e.message);
+    }
+    try {
+      await writeActivityLog({
+        projectId: project._id, taskId: task._id,
+        operatorId: openid, action: 'task.reopened',
+        targetType: 'task', targetId: task._id,
+        targetTitleSnapshot: task.title,
+        before: { status: TASK_STATUS.CLOSED_BY_PARENT },
+        after: { status: previousStatus },
+        visibleTo: [openid]
+      });
+    } catch (logErr) {
+      console.warn('[project.reopen] log task reopen failed:', logErr.message);
+    }
+  }
+
+  const progress = await recalculateProjectProgress(project._id);
+
+  await writeActivityLog({
+    projectId: project._id, operatorId: openid,
+    action: 'project.reopened',
+    targetType: 'project', targetId: project._id,
+    targetTitleSnapshot: project.title,
+    before: { status: project.status },
+    after: { status: PROJECT_STATUS.ACTIVE, completedAt: null },
+    metadata: { restoredTaskCount: closedTasks.data.length },
+    visibleTo: [openid]
+  });
+
+  return success({ progress }, '事件已重新打开');
 }
 
 async function recalculateProgressAction(payload, context) {
   const openid = auth.getUserId(context); const check = validateObjectId(payload.projectId);
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
   const project = await getOwnedProject(check.value, openid); if (!project) return fail('NOT_FOUND', '事件不存在或无权访问');
-  return success({ progress: await recalculateProgress(project._id, openid) });
+  return success({ progress: await recalculateProjectProgress(project._id) });
 }
 
-module.exports = { create, get, list, update, archive, restoreFromArchive, softDelete, restore, recalculateProgress: recalculateProgressAction, recalculateProjectProgress: recalculateProgress };
+module.exports = {
+  create, get, list, update,
+  archive, restoreFromArchive, softDelete, restore,
+  complete, reopen,
+  recalculateProgress: recalculateProgressAction
+};
+
+

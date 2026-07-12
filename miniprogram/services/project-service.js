@@ -13,8 +13,11 @@ function softDelete(projectId) { return callApi('project', 'softDelete', { proje
 function restore(projectId) { return callApi('project', 'restore', { projectId }); }
 function recalculateProgress(projectId) { return callApi('project', 'recalculateProgress', { projectId }); }
 
+function complete(projectId, confirmEarly = false) { return callApi('project', 'complete', { projectId, confirmEarly }); }
+function reopen(projectId) { return callApi('project', 'reopen', { projectId }); }
+
 module.exports = {
   create, update, get, list,
   archive, restoreFromArchive, softDelete, restore,
-  recalculateProgress
+  recalculateProgress, complete, reopen
 };

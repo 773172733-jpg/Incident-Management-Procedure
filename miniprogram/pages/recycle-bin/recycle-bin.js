@@ -8,7 +8,7 @@ Page({
   onShow() { this.load(); },
   async load() {
     this.setData({ loading: true, error: '' });
-    const [projectRes, taskRes] = await Promise.all([projectService.list({ deleted: true }), taskService.listDeleted()]);
+    const [projectRes, taskRes] = await Promise.all([projectService.list({ deletedMode: 'deleted' }), taskService.listDeleted()]);
     if (!projectRes.success || !taskRes.success) {
       console.error('[recycle-bin] load failed:', { projectRes, taskRes });
       return this.setData({ loading: false, error: projectRes.message || taskRes.message || '回收站加载失败' });

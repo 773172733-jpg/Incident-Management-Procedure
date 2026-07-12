@@ -8,7 +8,7 @@ const { success, fail } = require('../../common/response');
 const { validateTaskTitle, validatePriority, validateScheduleType, validateObjectId } = require('../../common/validator');
 const { SCHEDULE_TYPE, TASK_STATUS } = require('../../common/constants');
 const { writeActivityLog } = require('../../common/logger');
-const { recalculateProjectProgress } = require('../project/index');
+const { recalculateProjectProgress } = require('../../common/project-progress');
 
 async function ownedProject(openid, projectId) { const r = await db.collection('projects').doc(projectId).get().catch(() => ({ data: null })); return r.data && !r.data.deletedAt && permission.canEditProject(openid, r.data) ? r.data : null; }
 async function rawOwnedProject(openid, projectId) { const r = await db.collection('projects').doc(projectId).get().catch(() => ({ data: null })); return r.data && permission.canReadProject(openid, r.data) ? r.data : null; }
