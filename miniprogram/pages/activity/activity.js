@@ -3,7 +3,7 @@ const aFmt = require('../../utils/activity-format');
 Page({
   data: {
     tab: 'pending', logs: [], page: 1, pageSize: 20, hasMore: false,
-    loading: false, loadingMore: false, error: '',
+    loading: true, loadingMore: false, error: '',
     filter: 'all',
     filterOptions: [
       { key: 'all', label: '全部' },
@@ -29,19 +29,21 @@ Page({
     if (tab === 'pending') this.loadPending(); else this.loadLogs(true);
   },
   async loadPending() {
-    this.setData({ loading: true, error: '' });
-    var ss = require('../../services/schedule-service');
-    var res = await ss.listScheduledTasks();
-    if (!res.success) { console.error('[activity] pending:', res); return this.setData({ loading: false, error: res.message||'待处理加载失败' }); }
-    var tFmt = require('../../utils/format');
-    var dec = function(t) {
-      var ic = t.status==='completed'||t.status==='approved';
-      var tg = t.dueAt||t.endAt;
-      return { ...t, isCompleted: ic, priorityText: tFmt.priorityLabel(t.priority), statusText: tFmt.statusLabel(t.status), timeText: tFmt.projectTimeText(t), overdue: !ic&&t.status!=='closed_by_parent'&&tg&&new Date(tg).getTime()<Date.now() };
-    };
-    var tasks = (res.data.tasks||[]).map(dec);
-    this.setData({ tasks, loading: false, error: '' });
-    this.buildPending();
+    try {
+      this.setData({ loading: true, error: '' });
+      var ss = require('../../services/schedule-service');
+      var res = await ss.listScheduledTasks();
+      if (!res.success) { console.error('[activity] pending:', res); return this.setData({ loading: false, error: res.message||'待处理加载失败' }); }
+      var tFmt = require('../../utils/format');
+      var dec = function(t) {
+        var ic = t.status==='completed'||t.status==='approved';
+        var tg = t.dueAt||t.endAt;
+        return { ...t, isCompleted: ic, priorityText: tFmt.priorityLabel(t.priority), statusText: tFmt.statusLabel(t.status), timeText: tFmt.projectTimeText(t), overdue: !ic&&t.status!=='closed_by_parent'&&tg&&new Date(tg).getTime()<Date.now() };
+      };
+      var tasks = (res.data.tasks||[]).map(dec);
+      this.setData({ tasks, loading: false, error: '' });
+      this.buildPending();
+    } catch (e) { console.error('[activity] pending error:', e); this.setData({ loading: false, error: '待处理加载失败' }); }
   },
   buildPending() {
     var t = new Date(); t.setHours(0,0,0,0);
@@ -55,15 +57,17 @@ Page({
   openTask(e) { var item = e.detail.item; wx.navigateTo({ url: '/pages/task-edit/task-edit?projectId='+item.projectId+'&id='+item._id }); },
   async toggleTask(e) { if (this.data.operatingId) return; var item = e.detail.item; this.setData({ operatingId: item._id }); var ts=require('../../services/task-service'); var res=await ts.complete(item._id); this.setData({ operatingId: '' }); if (!res.success) return wx.showToast({ title: res.message, icon: 'none' }); var tasks=this.data.tasks.map(function(t){return t._id===item._id?{...t,status:'completed',completedAt:new Date().toISOString(),isCompleted:true}:t;}); this.setData({ tasks }); this.buildPending(); },
   async loadLogs(reset) {
-    if (reset) this.setData({ logs: [], page: 1, hasMore: false });
-    var page = reset ? 1 : this.data.page; if (page < 1) page = 1;
-    this.setData({ loading: page===1, loadingMore: page>1, error: '' });
-    var res = await activityService.list({ page, pageSize: this.data.pageSize, type: this.data.filter });
-    if (!res.success) { console.error('[activity] logs:', res); if (page===1) this.setData({ loading: false, error: res.message||'操作记录加载失败' }); else this.setData({ loadingMore: false }); return; }
-    var d = res.data||{}; var nl = d.list||[];
-    if (page===1) this.setData({ logs: nl, hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false });
-    else this.setData({ logs: this.data.logs.concat(nl), hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false });
-    this.buildDateGroups();
+    try {
+      if (reset) this.setData({ logs: [], page: 1, hasMore: false });
+      var page = reset ? 1 : this.data.page; if (page < 1) page = 1;
+      this.setData({ loading: page===1, loadingMore: page>1, error: '' });
+      var res = await activityService.list({ page, pageSize: this.data.pageSize, type: this.data.filter });
+      if (!res.success) { console.error('[activity] logs:', res); if (page===1) this.setData({ loading: false, error: res.message||'操作记录加载失败' }); else this.setData({ loadingMore: false }); return; }
+      var d = res.data||{}; var nl = d.list||[];
+      if (page===1) this.setData({ logs: nl, hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false });
+      else this.setData({ logs: this.data.logs.concat(nl), hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false });
+      this.buildDateGroups();
+    } catch (e) { console.error('[activity] logs error:', e); this.setData({ loading: false, error: '操作记录加载失败' }); }
   },
   loadMore() { if (this.data.loadingMore || !this.data.hasMore) return; this.loadLogs(false); },
   chooseFilter(e) { this.setData({ filter: e.currentTarget.dataset.key }); this.loadLogs(true); },
