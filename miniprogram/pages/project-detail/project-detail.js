@@ -57,9 +57,11 @@ Page({
     const project = this.decorateProject(rawProject, taskRes.data.tasks || []);
     const tasks = this.sortTasks((taskRes.data.tasks || []).map(item => this.decorateTask(item)));
     console.log('[project-detail] decorated tasks count=' + tasks.length + ', first=' + (tasks[0] ? tasks[0].title : 'N/A'));
+    console.log('[project-detail] first task keys:', tasks[0] ? Object.keys(tasks[0]) : 'N/A');
+    console.log('[project-detail] first task title:', tasks[0] ? tasks[0].title : 'N/A', 'status:', tasks[0] ? tasks[0].status : 'N/A', 'priorityText:', tasks[0] ? tasks[0].priorityText : 'N/A');
     this.setData({ project, tasks, groups: groupRes.data.groups || [], loading: false, error: '' });
     this.refreshDerivedData();
-    console.log('[project-detail] data set, filteredTasks=' + this.data.filteredTasks.length);
+    console.log('[project-detail] data set, filteredTasks count=' + this.data.filteredTasks.length + ', has title:', this.data.filteredTasks[0] ? this.data.filteredTasks[0].title : 'N/A');
   },
 
   decorateProject(project, tasks) {
