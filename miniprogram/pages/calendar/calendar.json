@@ -1,1 +1,1 @@
-{"usingComponents":{"empty-state":"/components/empty-state/empty-state"}}
+{"usingComponents":{"empty-state":"/components/empty-state/empty-state","loading-skeleton":"/components/loading-skeleton/loading-skeleton","schedule-task-card":"/components/schedule-task-card/schedule-task-card"}}
