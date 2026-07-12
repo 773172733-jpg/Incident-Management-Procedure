@@ -127,52 +127,49 @@ async function complete(payload, context) {
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
   if (project.status === PROJECT_STATUS.COMPLETED) return fail('PROJECT_ALREADY_COMPLETED', '事件已结束');
+  if (project.status === PROJECT_STATUS.ARCHIVED) return fail('INVALID_PARAMS', '已归档事件不能直接结束');
+  if (project.status === PROJECT_STATUS.CANCELLED) return fail('INVALID_PARAMS', '已取消事件不能结束');
+  if (project.status !== PROJECT_STATUS.ACTIVE) return fail('INVALID_PARAMS', '只有进行中的事件才能结束');
 
+  const incompleteTasks = await db.collection('tasks').where({
+    projectId: project._id, deletedAt: _.eq(null),
+    status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
+  }).get();
+
+  const hasIncomplete = incompleteTasks.data.length > 0;
   const confirmEarly = payload.confirmEarly === true;
-  const hasIncomplete = confirmEarly;
 
-  if (hasIncomplete) {
-    const incompleteTasks = await db.collection('tasks').where({
-      projectId: project._id, deletedAt: _.eq(null),
-      status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
-    }).get();
-
-    if (incompleteTasks.data.length > 0 && !confirmEarly) {
-      return fail('HAS_INCOMPLETE_TASKS', '还有未完成任务，请确认是否提前结束');
-    }
+  if (hasIncomplete && !confirmEarly) {
+    return fail('HAS_INCOMPLETE_TASKS', '还有 ' + incompleteTasks.data.length + ' 个未完成任务，请确认是否提前结束');
   }
 
   const now = db.serverDate();
-  const updateData = {
-    status: PROJECT_STATUS.COMPLETED,
-    completedAt: now,
-    completedBy: openid,
-    completedEarly: hasIncomplete,
-    updatedAt: now
-  };
 
-  await db.collection('projects').doc(project._id).update({ data: updateData });
+  await db.collection('projects').doc(project._id).update({
+    data: {
+      status: PROJECT_STATUS.COMPLETED,
+      completedAt: now,
+      completedBy: openid,
+      completedEarly: hasIncomplete,
+      updatedAt: now
+    }
+  });
 
   if (hasIncomplete) {
-    const incompleteTasks = await db.collection('tasks').where({
-      projectId: project._id, deletedAt: _.eq(null),
-      status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
-    }).get();
-
-    const batch = db.collection('tasks').where({
-      _id: _.in(incompleteTasks.data.map(t => t._id))
-    }).update({
-      data: {
-        status: TASK_STATUS.CLOSED_BY_PARENT,
-        statusBeforeParentClose: db.command.set(db.serverDate()),
-        closedAt: now,
-        closedBy: openid,
-        updatedAt: db.serverDate()
-      }
-    });
-    try { await batch; } catch (e) { console.error('[project.complete] batch close tasks failed:', e); }
-
     for (const task of incompleteTasks.data) {
+      try {
+        await db.collection('tasks').doc(task._id).update({
+          data: {
+            status: TASK_STATUS.CLOSED_BY_PARENT,
+            statusBeforeParentClose: task.status,
+            closedAt: now,
+            closedBy: openid,
+            updatedAt: db.serverDate()
+          }
+        });
+      } catch (e) {
+        console.error('[project.complete] close task failed:', task._id, e.message);
+      }
       try {
         await writeActivityLog({
           projectId: project._id, taskId: task._id,
@@ -180,7 +177,7 @@ async function complete(payload, context) {
           targetType: 'task', targetId: task._id,
           targetTitleSnapshot: task.title,
           before: { status: task.status },
-          after: { status: TASK_STATUS.CLOSED_BY_PARENT, closedAt: 'serverDate' },
+          after: { status: TASK_STATUS.CLOSED_BY_PARENT },
           visibleTo: [openid]
         });
       } catch (logErr) {
@@ -190,17 +187,17 @@ async function complete(payload, context) {
   }
 
   const progress = await recalculateProjectProgress(project._id);
-
   const action = hasIncomplete ? 'project.completed_early' : 'project.completed';
+
   await writeActivityLog({
     projectId: project._id, operatorId: openid, action,
     targetType: 'project', targetId: project._id,
     targetTitleSnapshot: project.title,
     before: { status: project.status, completedEarly: false },
     after: { status: PROJECT_STATUS.COMPLETED, completedEarly: hasIncomplete },
-    metadata: { incompleteCount: hasIncomplete ? (incompleteTasks ? incompleteTasks.data.length : 0) : 0 },
+    metadata: { incompleteCount: hasIncomplete ? incompleteTasks.data.length : 0 },
     visibleTo: [openid]
-  });
+  }).catch(function(err) { console.warn('[project.complete] project log failed:', err.message); });
 
   return success({ progress }, hasIncomplete ? '事件已提前结束' : '事件已结束');
 }
@@ -210,6 +207,8 @@ async function reopen(payload, context) {
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
+  if (project.status === PROJECT_STATUS.ARCHIVED) return fail('INVALID_PARAMS', '已归档事件不能重新打开')
+  if (project.status === PROJECT_STATUS.CANCELLED) return fail('INVALID_PARAMS', '已取消事件不能重新打开')
   if (project.status !== PROJECT_STATUS.COMPLETED) return fail('INVALID_PARAMS', '只有已结束的事件才能重新打开');
 
   const updateData = {

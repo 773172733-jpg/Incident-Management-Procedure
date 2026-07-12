@@ -153,21 +153,25 @@ Page({
   async completeProject() {
     const project = this.data.project;
     const taskRes = await taskService.listByProject(this.data.id);
-    const incompleteTasks = taskRes.success ? (taskRes.data.tasks || []).filter(item => item.status === 'todo' || item.status === 'doing') : [];
+    const allTasks = taskRes.success ? (taskRes.data.tasks || []) : [];
+    const incompleteTasks = allTasks.filter(item => item.status === 'todo' || item.status === 'doing');
     const incompleteCount = incompleteTasks.length;
+    const totalTaskCount = allTasks.length;
+
+    let title = '结束事件';
+    let content = '确认结束此事件？';
+    let confirmColor = '#FF6B35';
 
     if (incompleteCount > 0) {
-      const confirmed = await confirmModal('提前结束事件',
-        `当前还有 ${incompleteCount} 个未完成分支。结束事件后，它们会显示为"随事件结束"，不会算作已完成。`,
-        '#F04A4A'
-      );
-      if (!confirmed) return;
-    } else {
-      const confirmed = await confirmModal('结束事件',
-        '所有分支任务已完成，确认结束此事件？'
-      );
-      if (!confirmed) return;
+      title = '提前结束事件';
+      content = `当前还有 ${incompleteCount} 个未完成分支。结束事件后，它们会显示为"随事件结束"，不会算作已完成。`;
+      confirmColor = '#F04A4A';
+    } else if (totalTaskCount === 0) {
+      content = '该事件还没有分支任务，确认直接结束？';
     }
+
+    const confirmed = await confirmModal(title, content, confirmColor);
+    if (!confirmed) return;
 
     const res = await projectService.complete(this.data.id, incompleteCount > 0);
     wx.showToast({ title: res.message || '事件已结束', icon: res.success ? 'success' : 'none' });
