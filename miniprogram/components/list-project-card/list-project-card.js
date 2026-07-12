@@ -1,0 +1,1 @@
+Component({properties:{item:{type:Object,value:{}},primaryText:{type:String,value:'恢复'},secondaryText:{type:String,value:''},showProgress:{type:Boolean,value:false}},methods:{primary(){this.triggerEvent('primary',{item:this.data.item});},secondary(){this.triggerEvent('secondary',{item:this.data.item});}}});

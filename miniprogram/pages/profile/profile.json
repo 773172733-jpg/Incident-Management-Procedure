@@ -1,1 +1,1 @@
-{"usingComponents":{"section-title":"/components/section-title/section-title"}}
+{"usingComponents":{"section-title":"/components/section-title/section-title","settings-item":"/components/settings-item/settings-item","empty-state":"/components/empty-state/empty-state","loading-skeleton":"/components/loading-skeleton/loading-skeleton"}}
