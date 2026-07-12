@@ -1,5 +1,3 @@
-Page({
-  data: {},
-  onLoad() {},
-  onShow() {}
-});
+const projects = require('../../services/project-service');
+const { projectTimeText } = require('../../utils/format');
+Page({ data: { loading: true, error: '', filter: 'all', items: [], filters: [{ key: 'all', label: '全部' }, { key: 'active', label: '进行中' }, { key: 'ongoing', label: '无期限' }, { key: 'completed', label: '已结束' }] }, onShow() { this.load(); }, async load() { this.setData({ loading: true, error: '' }); const res = await projects.list(); if (!res.success) return this.setData({ loading: false, error: res.message }); const items = res.data.projects.map(p => ({ ...p, timeText: projectTimeText(p), progressText: `${p.progressCache || 0}%`, countText: `${p.completedTaskCountCache || 0}/${p.taskCountCache || 0}` })); this.setData({ items, loading: false }); }, chooseFilter(e) { this.setData({ filter: e.currentTarget.dataset.key }); }, create() { wx.navigateTo({ url: '/pages/project-edit/project-edit' }); }, detail(e) { wx.navigateTo({ url: '/pages/project-detail/project-detail?id=' + e.currentTarget.dataset.id }); }, retry() { this.load(); } });

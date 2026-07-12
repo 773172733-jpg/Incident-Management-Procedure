@@ -1,13 +1,41 @@
-﻿/**
- * 事件树 - task 模块
- * 将在后续阶段实现
- */
-
-const { success } = require('../../common/response');
+const cloud = require('wx-server-sdk');
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+const db = cloud.database();
+const _ = db.command;
 const auth = require('../../common/auth');
+const permission = require('../../common/permission');
+const { success, fail } = require('../../common/response');
+const { validateTaskTitle, validatePriority, validateScheduleType, validateObjectId } = require('../../common/validator');
+const { SCHEDULE_TYPE, TASK_STATUS } = require('../../common/constants');
+const { writeActivityLog } = require('../../common/logger');
+const { recalculateProjectProgress } = require('../project/index');
 
-async function placeholder(payload, context) {
-  return success(null, '模块尚未实现');
+async function ownedProject(openid, projectId) { const r = await db.collection('projects').doc(projectId).get().catch(() => ({ data: null })); return r.data && !r.data.deletedAt && permission.canEditProject(openid, r.data) ? r.data : null; }
+function input(payload) {
+  const title = validateTaskTitle(payload.title); if (!title.valid) return { error: title.message };
+  const priority = validatePriority(payload.priority || 'important'); if (!priority.valid) return { error: priority.message };
+  const scheduleType = validateScheduleType(payload.scheduleType || SCHEDULE_TYPE.NONE); if (!scheduleType.valid) return { error: scheduleType.message };
+  const startAt = payload.startAt ? new Date(payload.startAt) : null, endAt = payload.endAt ? new Date(payload.endAt) : null, dueAt = payload.dueAt ? new Date(payload.dueAt) : null;
+  if (scheduleType.value === SCHEDULE_TYPE.DEADLINE && !dueAt) return { error: '请设置截止时间' };
+  if (scheduleType.value === SCHEDULE_TYPE.RANGE && (!startAt || !endAt || endAt < startAt)) return { error: '请正确设置起止时间' };
+  return { data: { title: title.value, note: typeof payload.note === 'string' ? payload.note.trim().slice(0, 500) : '', priority: priority.value, scheduleType: scheduleType.value, startAt: scheduleType.value === SCHEDULE_TYPE.RANGE ? startAt : null, endAt: scheduleType.value === SCHEDULE_TYPE.RANGE ? endAt : null, dueAt: scheduleType.value === SCHEDULE_TYPE.DEADLINE ? dueAt : null, groupId: typeof payload.groupId === 'string' && payload.groupId ? payload.groupId : null } };
 }
-
-module.exports = { placeholder };
+async function verifyGroup(projectId, groupId) { if (!groupId) return true; const r = await db.collection('project_groups').doc(groupId).get().catch(() => ({ data: null })); return !!(r.data && !r.data.deletedAt && r.data.projectId === projectId); }
+async function create(payload, context) {
+  const openid = auth.getUserId(context); const projectId = validateObjectId(payload.projectId); const parsed = input(payload);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!projectId.valid || parsed.error) return fail('INVALID_PARAMS', projectId.valid ? parsed.error : projectId.message);
+  const project = await ownedProject(openid, projectId.value); if (!project) return fail('NOT_FOUND', '事件不存在或无权操作'); if (!await verifyGroup(project._id, parsed.data.groupId)) return fail('INVALID_PARAMS', '分组无效');
+  const last = await db.collection('tasks').where({ projectId: project._id, groupId: parsed.data.groupId, deletedAt: null }).orderBy('sortOrder', 'desc').limit(1).get();
+  const doc = { ...parsed.data, projectId: project._id, ownerId: openid, creatorId: openid, assigneeId: openid, teamId: null, sourceType: 'personal', approvalRequired: false, parentTaskId: null, level: 1, pathIds: [], status: TASK_STATUS.TODO, completedAt: null, completedBy: null, statusBeforeParentClose: null, deletedAt: null, sortOrder: last.data.length ? last.data[0].sortOrder + 1000 : 1000, createdAt: db.serverDate(), updatedAt: db.serverDate() };
+  const result = await db.collection('tasks').add({ data: doc }); const progress = await recalculateProjectProgress(project._id, openid);
+  await writeActivityLog({ projectId: project._id, taskId: result._id, operatorId: openid, action: 'task.created', targetType: 'task', targetId: result._id, targetTitleSnapshot: doc.title, after: parsed.data, visibleTo: [openid] });
+  return success({ task: { ...doc, _id: result._id }, progress }, '任务已创建');
+}
+async function listByProject(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.projectId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const project = await ownedProject(openid, id.value); if (!project) return fail('NOT_FOUND', '事件不存在或无权访问'); const r = await db.collection('tasks').where({ projectId: project._id, deletedAt: null }).orderBy('sortOrder', 'asc').limit(100).get(); return success({ tasks: r.data }); }
+async function get(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.taskId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const r = await db.collection('tasks').doc(id.value).get().catch(() => ({ data: null })); const task = r.data; const project = task && await ownedProject(openid, task.projectId); return task && project && !task.deletedAt ? success({ task }) : fail('NOT_FOUND', '任务不存在或无权访问'); }
+async function update(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.taskId); const parsed = input(payload); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid || parsed.error) return fail('INVALID_PARAMS', id.valid ? parsed.error : id.message); const r = await db.collection('tasks').doc(id.value).get().catch(() => ({ data: null })); const task = r.data; const project = task && await ownedProject(openid, task.projectId); if (!task || !project || task.deletedAt) return fail('NOT_FOUND', '任务不存在或无权修改'); if (!await verifyGroup(project._id, parsed.data.groupId)) return fail('INVALID_PARAMS', '分组无效'); await db.collection('tasks').doc(task._id).update({ data: { ...parsed.data, updatedAt: db.serverDate() } }); await writeActivityLog({ projectId: project._id, taskId: task._id, operatorId: openid, action: 'task.updated', targetType: 'task', targetId: task._id, targetTitleSnapshot: parsed.data.title, before: { title: task.title, status: task.status }, after: parsed.data, visibleTo: [openid] }); return success(null, '任务已更新'); }
+async function toggle(payload, context, completed) { const openid = auth.getUserId(context); const id = validateObjectId(payload.taskId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const r = await db.collection('tasks').doc(id.value).get().catch(() => ({ data: null })); const task = r.data; const project = task && await ownedProject(openid, task.projectId); if (!task || !project || task.deletedAt) return fail('NOT_FOUND', '任务不存在或无权操作'); if (completed && task.status === TASK_STATUS.COMPLETED) return success({ progress: await recalculateProjectProgress(project._id, openid) }, '任务已完成'); if (!completed && task.status === TASK_STATUS.TODO) return success({ progress: await recalculateProjectProgress(project._id, openid) }, '任务已是未完成状态'); const after = completed ? { status: TASK_STATUS.COMPLETED, completedAt: db.serverDate(), completedBy: openid, updatedAt: db.serverDate() } : { status: TASK_STATUS.TODO, completedAt: null, completedBy: null, updatedAt: db.serverDate() }; await db.collection('tasks').doc(task._id).update({ data: after }); const progress = await recalculateProjectProgress(project._id, openid); await writeActivityLog({ projectId: project._id, taskId: task._id, operatorId: openid, action: completed ? 'task.completed' : 'task.reopened', targetType: 'task', targetId: task._id, targetTitleSnapshot: task.title, before: { status: task.status }, after: { status: after.status }, visibleTo: [openid] }); return success({ progress }, completed ? '任务已完成' : '任务已重新打开'); }
+async function complete(payload, context) { return toggle(payload, context, true); } async function reopen(payload, context) { return toggle(payload, context, false); }
+async function softDelete(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.taskId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const r = await db.collection('tasks').doc(id.value).get().catch(() => ({ data: null })); const task = r.data; const project = task && await ownedProject(openid, task.projectId); if (!task || !project || task.deletedAt) return fail('NOT_FOUND', '任务不存在或无权删除'); await db.collection('tasks').doc(task._id).update({ data: { deletedAt: db.serverDate(), updatedAt: db.serverDate() } }); const progress = await recalculateProjectProgress(project._id, openid); await writeActivityLog({ projectId: project._id, taskId: task._id, operatorId: openid, action: 'task.deleted', targetType: 'task', targetId: task._id, targetTitleSnapshot: task.title, visibleTo: [openid] }); return success({ progress }, '任务已移入回收站'); }
+async function restore(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.taskId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const r = await db.collection('tasks').doc(id.value).get().catch(() => ({ data: null })); const task = r.data; const project = task && await ownedProject(openid, task.projectId); if (!task || !project || !task.deletedAt) return fail('NOT_FOUND', '回收站中未找到任务'); await db.collection('tasks').doc(task._id).update({ data: { deletedAt: null, updatedAt: db.serverDate() } }); const progress = await recalculateProjectProgress(project._id, openid); await writeActivityLog({ projectId: project._id, taskId: task._id, operatorId: openid, action: 'task.restored', targetType: 'task', targetId: task._id, targetTitleSnapshot: task.title, visibleTo: [openid] }); return success({ progress }, '任务已恢复'); }
+module.exports = { create, listByProject, get, update, complete, reopen, softDelete, restore };

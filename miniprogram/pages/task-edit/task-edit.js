@@ -1,5 +1,1 @@
-Page({
-  data: {},
-  onLoad() {},
-  onShow() {}
-});
+const t=require('../../services/task-service'),g=require('../../services/group-service'),v=require('../../utils/validator');Page({data:{projectId:'',title:'',note:'',priority:'important',scheduleType:'none',dueAt:'',startAt:'',endAt:'',groupId:'',groups:[],saving:false},async onLoad(q){this.setData({projectId:q.projectId});const r=await g.list(q.projectId);if(r.success)this.setData({groups:r.data.groups});},input(e){this.setData({[e.currentTarget.dataset.k]:e.detail.value});},pickPriority(e){this.setData({priority:['core','important','optional'][Number(e.detail.value)]});},pickGroup(e){const x=this.data.groups[Number(e.detail.value)];this.setData({groupId:x?x._id:''});},mode(e){this.setData({scheduleType:e.currentTarget.dataset.v});},async save(){if(this.data.saving)return;const err=v.validateTaskTitle(this.data.title)||v.validateTaskTime(this.data.startAt,this.data.endAt,this.data.dueAt,this.data.scheduleType);if(err)return wx.showToast({title:err,icon:'none'});this.setData({saving:true});const r=await t.create(this.data);this.setData({saving:false});if(!r.success)return wx.showToast({title:r.message,icon:'none'});wx.navigateBack();}});

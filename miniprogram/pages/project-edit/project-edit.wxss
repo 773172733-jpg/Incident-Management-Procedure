@@ -1,3 +1,4 @@
 /* project-edit */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
+.label{font-size:14px;color:#1F2329;margin:14px 0 8px}.modes{display:flex;gap:8px}.mode{flex:1;text-align:center;padding:10px 2px;background:#F7F8FA;border-radius:10px;font-size:12px}.mode.on{background:#FFF1EA;color:#FF6B35}.picker{padding:14px 0;border-bottom:1px solid #EEF0F3}.save{position:fixed;bottom:16px;left:16px;right:16px}

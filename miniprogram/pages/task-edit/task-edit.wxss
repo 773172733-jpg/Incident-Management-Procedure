@@ -1,3 +1,4 @@
 /* task-edit */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
+.card text{display:block;margin:13px 0 7px}.picker{padding:12px 0;border-bottom:1px solid #EEF0F3}.save{position:fixed;bottom:16px;left:16px;right:16px}

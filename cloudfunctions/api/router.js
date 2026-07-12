@@ -2,9 +2,15 @@
  * 事件树 - API 路由器
  */
 const userModule = require('./modules/user/index');
+const projectModule = require('./modules/project/index');
+const taskModule = require('./modules/task/index');
+const groupModule = require('./modules/group/index');
 
 const moduleMap = {
-  user: userModule
+  user: userModule,
+  project: projectModule,
+  task: taskModule,
+  group: groupModule
 };
 
 async function dispatch(moduleName, action, payload, context) {

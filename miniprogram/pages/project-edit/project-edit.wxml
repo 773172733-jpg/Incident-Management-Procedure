@@ -1,6 +1,1 @@
-﻿<!-- project-edit -->
-<view class="page">
-  <view class="empty-state">
-    <view class="empty-state__text">正在加载...</view>
-  </view>
-</view>
+<view class="page"><view class="card"><view class="label">事件名称</view><input value="{{title}}" maxlength="40" placeholder="例如：二建考试" data-key="title" bindinput="input"/><view class="label">事件说明</view><textarea value="{{description}}" maxlength="1000" placeholder="可选" data-key="description" bindinput="input"/></view><view class="card"><view class="label">时间模式</view><view class="modes"><view wx:for="{{['none','range','ongoing']}}" wx:key="*this" class="mode {{timeMode===item?'on':''}}" data-mode="{{item}}" bindtap="mode">{{item==='none'?'不设置时间':item==='range'?'设置期间':'持续进行'}}</view></view><picker wx:if="{{timeMode!=='none'}}" mode="date" value="{{startAt}}" data-key="startAt" bindchange="input"><view class="picker">开始：{{startAt||'请选择'}}</view></picker><picker wx:if="{{timeMode==='range'}}" mode="date" value="{{endAt}}" data-key="endAt" bindchange="input"><view class="picker">结束：{{endAt||'请选择'}}</view></picker></view><view class="save"><button class="btn-primary" loading="{{saving}}" disabled="{{saving}}" bindtap="save">保存事件</button></view></view>

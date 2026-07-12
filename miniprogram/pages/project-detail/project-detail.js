@@ -1,5 +1,2 @@
-Page({
-  data: {},
-  onLoad() {},
-  onShow() {}
-});
+const p=require('../../services/project-service'),t=require('../../services/task-service'),g=require('../../services/group-service'),f=require('../../utils/format');
+Page({data:{id:'',project:null,tasks:[],groups:[],groupId:'all',priority:'all',loading:true},onLoad(q){this.setData({id:q.id});},onShow(){if(this.data.id)this.load();},async load(){this.setData({loading:true});const [a,b,c]=await Promise.all([p.get(this.data.id),t.listByProject(this.data.id),g.list(this.data.id)]);if(a.success)this.setData({project:a.data.project});if(b.success)this.setData({tasks:b.data.tasks.map(x=>({...x,timeText:f.taskTimeText(x),priorityText:f.priorityLabel(x),completedText:x.completedAt?'已完成':''}))});if(c.success)this.setData({groups:c.data.groups});this.setData({loading:false});},add(){wx.navigateTo({url:'/pages/task-edit/task-edit?projectId='+this.data.id});},edit(){wx.navigateTo({url:'/pages/project-edit/project-edit?id='+this.data.id});},async toggle(e){const x=e.currentTarget.dataset.item,r=x.status==='completed'?await t.reopen(x._id):await t.complete(x._id);if(!r.success)wx.showToast({title:r.message,icon:'none'});this.load();},group(e){this.setData({groupId:e.currentTarget.dataset.id});},priority(e){this.setData({priority:e.currentTarget.dataset.id});}});

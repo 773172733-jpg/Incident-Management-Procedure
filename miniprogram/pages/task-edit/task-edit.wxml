@@ -1,6 +1,1 @@
-﻿<!-- task-edit -->
-<view class="page">
-  <view class="empty-state">
-    <view class="empty-state__text">正在加载...</view>
-  </view>
-</view>
+<view class="page"><view class="card"><text>任务名称</text><input placeholder="输入分支任务" value="{{title}}" data-k="title" bindinput="input"/><text>备注</text><textarea placeholder="可选" value="{{note}}" data-k="note" bindinput="input"/><text>优先级</text><picker range="{{['核心','重要','可选']}}" value="1" bindchange="pickPriority"><view class="picker">{{priority}}</view></picker><text>所属分组</text><picker range="{{groups}}" range-key="name" bindchange="pickGroup"><view class="picker">选择分组（可选）</view></picker><text>时间</text><view class="picker"><text data-v="none" bindtap="mode">不设置</text>　<text data-v="deadline" bindtap="mode">截止</text>　<text data-v="range" bindtap="mode">期间</text></view><picker wx:if="{{scheduleType==='deadline'}}" mode="date" value="{{dueAt}}" data-k="dueAt" bindchange="input"><view class="picker">截止：{{dueAt||'请选择'}}</view></picker></view><button class="btn-primary save" loading="{{saving}}" bindtap="save">保存任务</button></view>

@@ -1,3 +1,4 @@
 /* project-detail */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
+.head,.task{display:flex;justify-content:space-between}.title{font-size:20px;font-weight:600}.edit{color:#FF6B35}.sub{display:block;color:#8A9099;font-size:12px;margin-top:8px}.percent{font-size:30px;font-weight:700}.bar{height:7px;background:#EEF0F3;border-radius:99px;margin-top:12px}.bar-in{height:7px;background:#FF6B35;border-radius:99px}.tabs,.priorities{white-space:nowrap;padding:0 16px 12px}.tab,.priorities .tag{display:inline-block;margin-right:8px;padding:7px 11px;background:#fff;border-radius:99px;font-size:12px}.task-title{display:block;font-size:16px;margin-top:7px}.done{opacity:.52}.done .task-title{text-decoration:line-through}.check{align-self:center;color:#FF6B35;background:#FFF1EA;border-radius:18px;font-size:12px}.bottom{position:fixed;bottom:16px;left:16px;right:16px;background:#FF6B35;color:#fff}

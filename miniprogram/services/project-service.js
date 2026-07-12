@@ -15,9 +15,10 @@ function softDelete(projectId) { return callApi('project', 'softDelete', { proje
 function restore(projectId) { return callApi('project', 'restore', { projectId }); }
 function hardDelete(projectId) { return callApi('project', 'hardDelete', { projectId }); }
 function getDashboardStats() { return callApi('project', 'getDashboardStats'); }
+function recalculateProgress(projectId) { return callApi('project', 'recalculateProgress', { projectId }); }
 
 module.exports = {
   create, update, get, list, complete, reopen,
   archive, restoreFromArchive, softDelete, restore, hardDelete,
-  getDashboardStats
+  getDashboardStats, recalculateProgress
 };

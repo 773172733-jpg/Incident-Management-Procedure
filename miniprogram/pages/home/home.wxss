@@ -1,3 +1,4 @@
 /* home */
 @import '../../styles/variables.wxss';
 @import '../../styles/common.wxss';
+.filters{white-space:nowrap;padding:0 16px 16px}.filter{display:inline-block;padding:8px 14px;margin-right:8px;background:#fff;border-radius:999px;color:#8A9099;font-size:13px}.filter.on{background:#FFF1EA;color:#FF6B35}.project{margin-bottom:12px}.project-top{display:flex;justify-content:space-between}.project-title{font-size:17px;font-weight:600}.project-time{display:block;color:#8A9099;font-size:12px;margin-top:8px}.bar{height:6px;background:#F1F2F4;border-radius:99px;margin-top:14px}.bar-in{height:6px;background:#FF6B35;border-radius:99px}.float-add{position:fixed;right:20px;bottom:32px;background:#FF6B35;color:#fff;border-radius:24px;font-size:14px}
