@@ -30,10 +30,13 @@
 | projectId + deletedAt + sortOrder | 否 |
 | projectId + status + sortOrder | 否 |
 | ownerId + status + dueAt | 否 |
+| ownerId + deletedAt + status + dueAt | 否 |
 | ownerId + deletedAt + updatedAt | 否 |
 | assigneeId + status + dueAt | 否 |
 | parentTaskId + sortOrder | 否 |
 | groupId + sortOrder | 否 |
+
+`activity.pending` 依赖 `ownerId + deletedAt + status + dueAt` 复合索引，字段方向均为升序；接口按当前用户、未删除状态、任务状态和截止时间范围查询待处理任务。
 
 ## 5. reminders
 

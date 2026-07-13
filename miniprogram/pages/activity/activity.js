@@ -3,7 +3,7 @@ const aFmt = require('../../utils/activity-format');
 Page({
   data: {
     tab: 'pending', logs: [], page: 1, pageSize: 20, hasMore: false,
-    loading: true, loadingMore: false, error: '',
+    loading: true, refreshing: false, loadingMore: false, error: '', hasLoaded: false,
     filter: 'all',
     filterOptions: [
       { key: 'all', label: '全部' },
@@ -12,14 +12,16 @@ Page({
       { key: 'group', label: '分组' }
     ],
     dateGroups: [],
-    tasks: [], todayTasks: [], upcomingTasks: [], overdueTasks: [], operatingId: ''
+    summary: { overdue: 0, today: 0, upcoming: 0, total: 0 },
+    sections: { overdue: [], today: [], upcoming: [] },
+    operatingTaskId: ''
   },
   onShow() {
     if (this.getTabBar()) this.getTabBar().setData({ selected: 2 });
     if (this.data.tab === 'pending') this.loadPending(); else this.loadLogs(true);
   },
   onPullDownRefresh() {
-    if (this.data.tab === 'pending') this.loadPending().finally(function(){wx.stopPullDownRefresh();});
+    if (this.data.tab === 'pending') this.loadPending(true).finally(function(){wx.stopPullDownRefresh();});
     else this.loadLogs(true).finally(function(){wx.stopPullDownRefresh();});
   },
   onReachBottom() { if (this.data.tab === 'logs') this.loadMore(); },
@@ -28,34 +30,59 @@ Page({
     this.setData({ tab: tab });
     if (tab === 'pending') this.loadPending(); else this.loadLogs(true);
   },
-  async loadPending() {
+  async loadPending(refreshing) {
     try {
-      this.setData({ loading: true, error: '' });
-      var ss = require('../../services/schedule-service');
-      var res = await ss.listScheduledTasks();
-      if (!res.success) { console.error('[activity] pending:', res); return this.setData({ loading: false, error: res.message||'待处理加载失败' }); }
+      this.setData({ loading: !this.data.hasLoaded, refreshing: refreshing === true, error: '' });
+      var res = await activityService.pending();
+      if (!res.success) {
+        console.error('[activity] pending:', res);
+        return this.setData({
+          loading: false, refreshing: false, hasLoaded: true,
+          error: res.message || '待处理加载失败',
+          summary: emptySummary(), sections: emptySections()
+        });
+      }
       var tFmt = require('../../utils/format');
       var dec = function(t) {
-        var ic = t.status==='completed'||t.status==='approved';
-        var tg = t.dueAt||t.endAt;
-        return { ...t, isCompleted: ic, priorityText: tFmt.priorityLabel(t.priority), statusText: tFmt.statusLabel(t.status), timeText: tFmt.projectTimeText(t), overdue: !ic&&t.status!=='closed_by_parent'&&tg&&new Date(tg).getTime()<Date.now() };
+        return { ...t, isCompleted: false, priorityText: tFmt.priorityLabel(t.priority), statusText: t.overdue ? '已逾期' : '待完成', timeText: pendingTimeText(t.dueAt) };
       };
-      var tasks = (res.data.tasks||[]).map(dec);
-      this.setData({ tasks, loading: false, error: '' });
-      this.buildPending();
-    } catch (e) { console.error('[activity] pending error:', e); this.setData({ loading: false, error: '待处理加载失败' }); }
-  },
-  buildPending() {
-    var t = new Date(); t.setHours(0,0,0,0);
-    var tm = new Date(t.getTime()+86400000), se = new Date(t.getTime()+4*86400000);
-    var act = this.data.tasks.filter(function(x){return !x.isCompleted&&x.status!=='closed_by_parent';});
-    var target = function(x){return new Date(x.dueAt||x.endAt);};
-    var ow = function(x){return {...x, timeText:'已逾期'+Math.max(1,Math.ceil((Date.now()-target(x).getTime())/86400000))+'天', overdue:true};};
-    this.setData({ overdueTasks: act.filter(function(x){return target(x)<t;}).map(ow), todayTasks: act.filter(function(x){return target(x)>=t&&target(x)<tm;}), upcomingTasks: act.filter(function(x){return target(x)>=tm&&target(x)<se;}) });
+      var data = res.data || {}, sections = data.sections || {};
+      this.setData({
+        summary: data.summary || emptySummary(),
+        sections: {
+          overdue: (sections.overdue || []).map(dec),
+          today: (sections.today || []).map(dec),
+          upcoming: (sections.upcoming || []).map(dec)
+        },
+        loading: false, refreshing: false, hasLoaded: true, error: ''
+      });
+    } catch (e) {
+      console.error('[activity] pending error:', e);
+      this.setData({ loading: false, refreshing: false, hasLoaded: true, error: '待处理加载失败', summary: emptySummary(), sections: emptySections() });
+    }
   },
   retry() { if (this.data.tab === 'pending') this.loadPending(); else this.loadLogs(true); },
-  openTask(e) { var item = e.detail.item; wx.navigateTo({ url: '/pages/task-edit/task-edit?projectId='+item.projectId+'&id='+item._id }); },
-  async toggleTask(e) { if (this.data.operatingId) return; var item = e.detail.item; this.setData({ operatingId: item._id }); var ts=require('../../services/task-service'); var res=await ts.complete(item._id); this.setData({ operatingId: '' }); if (!res.success) return wx.showToast({ title: res.message, icon: 'none' }); var tasks=this.data.tasks.map(function(t){return t._id===item._id?{...t,status:'completed',completedAt:new Date().toISOString(),isCompleted:true}:t;}); this.setData({ tasks }); this.buildPending(); },
+  openTask(e) {
+    var item = e.detail.item;
+    if (!item || !item.projectId) return wx.showToast({ title: '所属事件已不存在', icon: 'none' });
+    wx.navigateTo({
+      url: '/pages/project-detail/project-detail?id=' + encodeURIComponent(item.projectId) + '&taskId=' + encodeURIComponent(item._id),
+      fail: function() { wx.showToast({ title: '无法打开所属事件', icon: 'none' }); }
+    });
+  },
+  async toggleTask(e) {
+    if (this.data.operatingTaskId) return;
+    var item = e.detail.item;
+    this.setData({ operatingTaskId: item._id });
+    try {
+      var ts = require('../../services/task-service');
+      var res = await ts.complete(item._id);
+      if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
+      await this.loadPending();
+    } finally {
+      this.setData({ operatingTaskId: '' });
+    }
+  },
   async loadLogs(reset) {
     try {
       if (reset) this.setData({ logs: [], page: 1, hasMore: false });
@@ -91,3 +118,12 @@ Page({
   },
   retryLoadMore() { this.loadMore(); }
 });
+
+function emptySummary() { return { overdue: 0, today: 0, upcoming: 0, total: 0 }; }
+function emptySections() { return { overdue: [], today: [], upcoming: [] }; }
+function pendingTimeText(value) {
+  var date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '截止时间待确认';
+  var pad = function(number) { return String(number).padStart(2, '0'); };
+  return '截止 ' + (date.getMonth() + 1) + '月' + date.getDate() + '日 ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+}

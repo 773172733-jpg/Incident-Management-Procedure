@@ -4,8 +4,9 @@
 const { callApi } = require('./api');
 
 function list(params) { return callApi('activity', 'list', params); }
+function pending() { return callApi('activity', 'pending'); }
 function listByProject(projectId, params) {
   return callApi('activity', 'listByProject', { projectId, ...params });
 }
 
-module.exports = { list, listByProject };
+module.exports = { pending, list, listByProject };
