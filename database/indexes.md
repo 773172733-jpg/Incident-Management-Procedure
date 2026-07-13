@@ -31,6 +31,8 @@
 | projectId + status + sortOrder | 否 |
 | ownerId + status + dueAt | 否 |
 | ownerId + deletedAt + status + dueAt | 否 |
+| ownerId + deletedAt + scheduleType + dueAt | 否 |
+| ownerId + deletedAt + scheduleType + startAt | 否 |
 | ownerId + deletedAt + updatedAt | 否 |
 | assigneeId + status + dueAt | 否 |
 | parentTaskId + sortOrder | 否 |
@@ -39,6 +41,13 @@
 `activity.pending` 依赖 `ownerId + deletedAt + status + dueAt` 复合索引，字段方向均为升序；接口按当前用户、未删除状态、任务状态和截止时间范围查询待处理任务。
 
 阶段 4D 兼容旧 range 任务的 `endAt` 查询时，可能临时需要 `ownerId + deletedAt + status + scheduleType + endAt` 升序复合索引。新写入任务统一使用 `dueAt`，旧数据完成迁移后可评估移除该临时索引。
+
+`calendar.month` 依赖以下两个复合索引，字段方向均为升序：
+
+- `ownerId + deletedAt + scheduleType + dueAt`：查询本月截止的 deadline 任务。
+- `ownerId + deletedAt + scheduleType + startAt`：查询开始时间不晚于月末的 range 任务，再在云函数内用 `dueAt || endAt` 判断是否与本月相交。
+
+项目日历条目复用现有 `ownerId + deletedAt + updatedAt` 索引读取当前用户未删除项目，并在云函数内按月份生成日期键，因此本阶段不新增项目索引，也不需要旧 `endAt` 日历索引。
 
 ## 5. reminders
 

@@ -4,49 +4,61 @@ const db = cloud.database();
 const _ = db.command;
 const auth = require('../../common/auth');
 const { success, fail } = require('../../common/response');
-const { getEffectiveDueAt, isTaskOverdue } = require('../../common/task-time');
 const { getAll } = require('../../common/query');
+const { monthKeys, monthInstants, buildProjectEntry, buildTaskEntry, aggregateDays } = require('../../common/calendar-entry');
 
-function ldk(d) {
-  var y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), dd=String(d.getDate()).padStart(2,'0');
-  return y+'-'+m+'-'+dd;
-}
-function tt(task){
-  if(task.scheduleType==='deadline'&&task.dueAt){var d=new Date(task.dueAt);if(isNaN(d.getTime()))return '';var p=function(n){return String(n).padStart(2,'0');};return '\u622a\u6b62 '+(d.getMonth()+1)+'\u6708'+d.getDate()+'\u65e5 '+p(d.getHours())+':'+p(d.getMinutes());}
-  if(task.scheduleType==='range'){var s=task.startAt?new Date(task.startAt):null;var ed=getEffectiveDueAt(task);if(s&&ed&&!isNaN(s.getTime()))return (s.getMonth()+1)+'\u6708'+s.getDate()+'\u65e5\u2014'+(ed.getMonth()+1)+'\u6708'+ed.getDate()+'\u65e5';}
-  return '';
+function validTimezone(value) {
+  const timezone = typeof value === 'string' && value ? value : 'Asia/Shanghai';
+  try { new Intl.DateTimeFormat('en-US', { timeZone: timezone }).format(); return timezone; }
+  catch (error) { return null; }
 }
 
 async function month(payload, context) {
-  var openid = auth.getUserId(context);
-  if (!openid) return fail('UNAUTHORIZED','\u65e0\u6cd5\u83b7\u53d6\u7528\u6237\u8eab\u4efd');
-  var year = Number(payload.year), month = Number(payload.month);
-  if (!year||year<2000||year>2100||!month||month<1||month>12) return fail('INVALID_PARAMS','\u5e74\u4efd\u6216\u6708\u4efd\u65e0\u6548');
-  var mi=month-1, ms=new Date(year,mi,1), me=new Date(year,mi+1,0,23,59,59,999);
+  const openid = auth.getUserId(context);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  const year = Number(payload.year), monthNumber = Number(payload.month);
+  const timezone = validTimezone(payload.timezone);
+  if (!Number.isInteger(year) || year < 2000 || year > 2100 || !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12 || !timezone) {
+    return fail('INVALID_PARAMS', '年份、月份或时区无效');
+  }
+
+  const bounds = monthKeys(year, monthNumber);
+  const instants = monthInstants(year, monthNumber, timezone);
   try {
-    var projects=await getAll(db.collection('projects').where({ownerId:openid,deletedAt:_.eq(null)}).field({_id:true,title:true}));
-    var pm={},pi=[]; for(var i=0;i<projects.length;i++){var p=projects[i];pm[p._id]=p.title||'';pi.push(p._id);}
-    if(pi.length===0) return success({year,month,days:{},tasks:[]});
-    var dl=[]; try{dl=await getAll(db.collection('tasks').where({projectId:_.in(pi),deletedAt:_.eq(null),scheduleType:'deadline',dueAt:_.gte(ms)}));}catch(e){}
-    var rn=[]; try{var ranges=await getAll(db.collection('tasks').where({projectId:_.in(pi),deletedAt:_.eq(null),scheduleType:'range',startAt:_.lte(me)}));for(var j=0;j<ranges.length;j++){var t=ranges[j];var te=getEffectiveDueAt(t);if(te&&te>=ms)rn.push(t);}}catch(e){}
-    var tm={};for(var k=0;k<dl.length;k++)tm[dl[k]._id]=dl[k];for(var l=0;l<rn.length;l++)tm[rn[l]._id]=rn[l];
-    var all=[];for(var id in tm)all.push(tm[id]);
-    var days={},dec=[];
-    var priMap={core:'\u6838\u5fc3',important:'\u91cd\u8981',optional:'\u53ef\u9009'};
-    var staMap={todo:'\u672a\u5b8c\u6210',doing:'\u8fdb\u884c\u4e2d',completed:'\u5df2\u5b8c\u6210',closed_by_parent:'\u968f\u4e8b\u4ef6\u7ed3\u675f'};
-    for(var m2=0;m2<all.length;m2++){
-      var task=all[m2],st=task.startAt?new Date(task.startAt):null,et=null;
-      if(task.scheduleType==='deadline'&&task.dueAt) et=new Date(task.dueAt);
-      if(task.scheduleType==='range') et=getEffectiveDueAt(task);
-      var keys=[];
-      if(task.scheduleType==='deadline'&&et){var dk=ldk(et);if(et>=ms&&et<=me)keys.push(dk);}
-      else if(task.scheduleType==='range'&&st&&et){var rs=st>ms?st:ms,re=et<me?et:me,c=new Date(rs);while(c<=re){keys.push(ldk(c));c.setDate(c.getDate()+1);}}
-      for(var n=0;n<keys.length;n++){var kk=keys[n];if(!days[kk])days[kk]={total:0,completed:0,todo:0,closedByParent:0};days[kk].total++;var ic=task.status==='completed'||task.status==='approved';if(ic)days[kk].completed++;else if(task.status==='closed_by_parent')days[kk].closedByParent++;else days[kk].todo++;}
-      var isC=task.status==='completed'||task.status==='approved',effectiveDueAt=getEffectiveDueAt(task);
-      dec.push({_id:task._id,projectId:task.projectId,projectTitle:pm[task.projectId]||'',title:task.title||'',priority:task.priority||'optional',priorityText:priMap[task.priority]||'',status:task.status||'todo',statusText:staMap[task.status]||'\u672a\u5b8c\u6210',scheduleType:task.scheduleType||'none',startAt:task.startAt||null,endAt:task.endAt||null,dueAt:effectiveDueAt?effectiveDueAt.toISOString():null,completedAt:task.completedAt||null,isCompleted:isC,isClosedByParent:task.status==='closed_by_parent',overdue:isTaskOverdue(task),timeText:tt(task),dateKeys:keys});
-    }
-    return success({year,month,days,tasks:dec});
-  } catch(err){console.error('[calendar.month]',err);return fail('INTERNAL_ERROR','\u65e5\u5386\u67e5\u8be2\u5931\u8d25');}
+    const projects = await getAll(db.collection('projects').where({ ownerId: openid, deletedAt: _.eq(null) }));
+    const projectMap = {};
+    projects.forEach(project => { projectMap[project._id] = project; });
+
+    const deadlineTasks = await getAll(db.collection('tasks').where({
+      ownerId: openid, deletedAt: _.eq(null), scheduleType: 'deadline', dueAt: _.gte(instants.start).and(_.lte(instants.end))
+    }));
+    const rangeTasks = await getAll(db.collection('tasks').where({
+      ownerId: openid, deletedAt: _.eq(null), scheduleType: 'range', startAt: _.lte(instants.end)
+    }));
+
+    const entries = [];
+    projects.forEach(project => {
+      try { const entry = buildProjectEntry(project, bounds, timezone); if (entry) entries.push(entry); }
+      catch (error) { console.warn('[calendar.month] skip invalid project:', project._id, error.message); }
+    });
+    deadlineTasks.concat(rangeTasks).forEach(task => {
+      try { const entry = buildTaskEntry(task, projectMap[task.projectId], bounds, timezone); if (entry) entries.push(entry); }
+      catch (error) { console.warn('[calendar.month] skip invalid task:', task._id, error.message); }
+    });
+
+    const unique = [];
+    const seen = new Set();
+    entries.forEach(entry => {
+      const key = `${entry.entryType}:${entry.id}`;
+      if (!seen.has(key)) { seen.add(key); unique.push(entry); }
+    });
+    return success({ year, month: monthNumber, timezone, days: aggregateDays(unique), entries: unique });
+  } catch (error) {
+    console.error('[calendar.month]', error);
+    return fail('INTERNAL_ERROR', '日历查询失败');
+  }
 }
-async function day(payload,context){return fail('NOT_IMPLEMENTED','\u8bf7\u4f7f\u7528calendar.month');}
-module.exports={month,day};
+
+async function day() { return fail('NOT_IMPLEMENTED', '请使用calendar.month'); }
+
+module.exports = { month, day };
