@@ -185,7 +185,7 @@ Page({
   },
 
   async reopenProject() {
-    const confirmed = await confirmModal('重新打开事件', '重新打开后，随事件关闭的分支会恢复为之前的状态。');
+    const confirmed = await confirmModal('重新打开大事件', '重新打开后，因大事件结束而关闭的分支任务将恢复。确定继续吗？');
     if (!confirmed) return;
     const res = await projectService.reopen(this.data.id);
     wx.showToast({ title: res.message || '事件已重新打开', icon: res.success ? 'success' : 'none' });
@@ -193,7 +193,7 @@ Page({
   },
 
   async archiveProject() {
-    const confirmed = await confirmModal('归档事件', '归档后可在“我的 → 已归档事件”中恢复。');
+    const confirmed = await confirmModal('归档大事件', '归档后可在「我的」→「已归档大事件」中恢复。');
     if (!confirmed) return;
     const res = await projectService.archive(this.data.id);
     wx.showToast({ title: res.message, icon: res.success ? 'success' : 'none' });
@@ -201,7 +201,7 @@ Page({
   },
 
   async deleteProject() {
-    const confirmed = await confirmModal('删除事件', `确定将“${this.data.project.title}”移入回收站吗？`, '#F04A4A');
+    const confirmed = await confirmModal('删除大事件', `确定将该大事件移入回收站吗？`, '#F04A4A');
     if (!confirmed) return;
     const res = await projectService.softDelete(this.data.id);
     wx.showToast({ title: res.message, icon: res.success ? 'success' : 'none' });
@@ -237,7 +237,7 @@ Page({
   },
 
   async deleteTask(task) {
-    const confirmed = await confirmModal('删除任务', `确定将“${task.title}”移入回收站吗？`, '#F04A4A');
+    const confirmed = await confirmModal('删除分支任务', `确定将该分支任务移入回收站吗？`, '#F04A4A');
     if (!confirmed) return;
     const res = await taskService.softDelete(task._id);
     if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });

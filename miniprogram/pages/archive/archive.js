@@ -23,7 +23,7 @@ Page({
   async restore(e) {
     const item = e.detail.item;
     if (this.data.operatingId) return;
-    const confirmed = await confirmModal('恢复事件', '恢复后，该事件会重新出现在首页。');
+    const confirmed = await confirmModal('恢复大事件', '恢复后，该大事件会重新出现在首页。');
     if (!confirmed) return;
     this.setData({ operatingId: item._id });
     const res = await projectService.restoreFromArchive(item._id);
@@ -35,7 +35,7 @@ Page({
   async remove(e) {
     const item = e.detail.item;
     if (this.data.operatingId) return;
-    const confirmed = await confirmModal('删除事件', `确定将“${item.title}”移入回收站吗？`, '#F04A4A');
+    const confirmed = await confirmModal('删除大事件', `确定将该大事件移入回收站吗？`, '#F04A4A');
     if (!confirmed) return;
     this.setData({ operatingId: item._id });
     const res = await projectService.softDelete(item._id);
