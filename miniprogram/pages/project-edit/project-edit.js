@@ -10,7 +10,13 @@ Page({
     if (!res.success) return this.setData({ loading: false, error: res.message });
     const project = res.data.project;
     this.setData({
-      ...project,
+      title: project.title || '',
+      description: project.description || '',
+      timeMode: project.timeMode || 'none',
+      icon: project.icon || 'circle',
+      themeColor: project.themeColor || '#FF6B35',
+      iconType: project.iconType || 'text',
+      iconValue: project.iconValue || '',
       startAt: project.startAt ? new Date(project.startAt).toISOString().slice(0, 10) : '',
       endAt: project.endAt ? new Date(project.endAt).toISOString().slice(0, 10) : '',
       loading: false,
@@ -18,7 +24,12 @@ Page({
     });
   },
   input(e) { this.setData({ [e.currentTarget.dataset.key]: e.detail.value }); },
-  mode(e) { this.setData({ timeMode: e.currentTarget.dataset.mode }); },
+  mode(e) {
+    this.setData({ timeMode: e.currentTarget.dataset.mode });
+    if (e.currentTarget.dataset.mode === 'none') {
+      this.setData({ startAt: '', endAt: '' });
+    }
+  },
   chooseIcon(e) { var v=e.currentTarget.dataset.value; this.setData({iconType:'emoji',iconValue:v}); },
   retry() { this.onLoad({ id: this.data.id }); },
   async save() {
