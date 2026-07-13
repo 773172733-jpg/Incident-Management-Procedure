@@ -3,6 +3,7 @@
  */
 
 const { PRIORITY } = require('../constants/enums');
+const { getEffectiveDueAt } = require('./task-time');
 
 /** 优先级显示文案 */
 function priorityLabel(p) {
@@ -40,13 +41,14 @@ function projectTimeText(project) {
 
 /** 任务时间文案 */
 function taskTimeText(task) {
-  const { scheduleType, startAt, dueAt, endAt } = task;
+  const { scheduleType, startAt } = task;
+  const dueAt = getEffectiveDueAt(task);
   const date = require('./date');
 
   if (scheduleType === 'none') return '';
   if (scheduleType === 'deadline') return '截止 ' + date.formatDateTime(dueAt);
   if (scheduleType === 'range') {
-    return date.formatDate(startAt) + '\u2014' + date.formatDate(endAt);
+    return date.formatDate(startAt) + '\u2014' + date.formatDate(dueAt);
   }
   return '';
 }

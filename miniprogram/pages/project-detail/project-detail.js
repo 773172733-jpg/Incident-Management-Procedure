@@ -2,6 +2,7 @@ const projectService = require('../../services/project-service');
 const taskService = require('../../services/task-service');
 const groupService = require('../../services/group-service');
 const format = require('../../utils/format');
+const { getEffectiveDueAt, isTaskOverdue } = require('../../utils/task-time');
 
 Page({
   data: {
@@ -54,8 +55,8 @@ Page({
   decorateProject(project, tasks) {
     const progress = Math.max(0, Math.min(100, Number(project.progressCache) || 0));
     const nearest = tasks
-      .filter(item => item.status !== 'completed' && item.status !== 'approved' && item.status !== 'closed_by_parent' && (item.dueAt || item.endAt))
-      .sort((a, b) => new Date(a.dueAt || a.endAt) - new Date(b.dueAt || b.endAt))[0];
+      .filter(item => item.status !== 'completed' && item.status !== 'approved' && item.status !== 'closed_by_parent' && getEffectiveDueAt(item))
+      .sort((a, b) => getEffectiveDueAt(a) - getEffectiveDueAt(b))[0];
     return {
       ...project,
       progressCache: progress,
@@ -72,7 +73,6 @@ Page({
 
   decorateTask(task) {
     const isCompleted = task.status === 'completed' || task.status === 'approved';
-    const targetAt = task.dueAt || task.endAt;
     return {
       ...task,
       groupKey: task.groupId || '',
@@ -80,7 +80,7 @@ Page({
       priorityText: format.priorityLabel(task.priority),
       timeText: taskTimeText(task),
       completedText: task.completedAt ? completedTimeText(task.completedAt) : '',
-      overdue: !isCompleted && task.status !== 'closed_by_parent' && targetAt && new Date(targetAt).getTime() < Date.now()
+      overdue: isTaskOverdue(task)
     };
   },
 
@@ -272,8 +272,8 @@ Page({
 
 function taskTimeText(task) {
   if (task.scheduleType === 'none') return '未设置时间';
-  if (task.scheduleType === 'deadline') return `截止 ${compactDateTime(task.dueAt)}`;
-  if (task.scheduleType === 'range') return `${compactDateTime(task.startAt)}—${compactDateTime(task.endAt)}`;
+  if (task.scheduleType === 'deadline') return `截止 ${compactDateTime(getEffectiveDueAt(task))}`;
+  if (task.scheduleType === 'range') return `${compactDateTime(task.startAt)}—${compactDateTime(getEffectiveDueAt(task))}`;
   return '未设置时间';
 }
 

@@ -50,9 +50,10 @@ Page({
       return false;
     }
     const task = res.data.task;
-    const due = dateTimeParts(task.dueAt);
+    const effectiveDueAt = task.dueAt || task.endAt;
+    const due = dateTimeParts(task.scheduleType === 'deadline' ? effectiveDueAt : null);
     const start = dateTimeParts(task.startAt);
-    const end = dateTimeParts(task.endAt);
+    const end = dateTimeParts(task.scheduleType === 'range' ? effectiveDueAt : null);
     this.setData({
       title: task.title || '',
       note: task.note || '',
@@ -105,10 +106,10 @@ Page({
     if (this.data.saving) return;
     const dueAt = this.data.scheduleType === 'deadline' ? combineDateTime(this.data.dueAt, this.data.dueTime || '00:00') : undefined;
     const startAt = this.data.scheduleType === 'range' ? combineDateTime(this.data.startAt, this.data.startTime || '00:00') : undefined;
-    const endAt = this.data.scheduleType === 'range' ? combineDateTime(this.data.endAt, this.data.endTime || '00:00') : undefined;
+    const rangeDueAt = this.data.scheduleType === 'range' ? combineDateTime(this.data.endAt, this.data.endTime || '00:00') : undefined;
     const error = validateTaskTitle(this.data.title)
       || validateNote(this.data.note)
-      || validateTaskTime(startAt, endAt, dueAt, this.data.scheduleType)
+      || validateTaskTime(startAt, rangeDueAt, dueAt, this.data.scheduleType)
       || this.validateTimeSelection();
     if (error) return wx.showToast({ title: error, icon: 'none' });
 
@@ -119,9 +120,8 @@ Page({
       note: this.data.note.trim(),
       priority: this.data.priority,
       scheduleType: this.data.scheduleType,
-      dueAt,
+      dueAt: this.data.scheduleType === 'range' ? rangeDueAt : dueAt,
       startAt,
-      endAt,
       groupId: this.data.groupId || null
     };
     let res;

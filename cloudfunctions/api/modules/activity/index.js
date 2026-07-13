@@ -11,6 +11,7 @@ const { success, fail } = require('../../common/response');
 const { validateObjectId } = require('../../common/validator');
 const { getAll } = require('../../common/query');
 const { TASK_STATUS } = require('../../common/constants');
+const { getEffectiveDueAt } = require('../../common/task-time');
 const PS_DEF = 20, PS_MAX = 50;
 const TFM = { all: null, project: 'project', task: 'task', group: 'group' };
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -24,14 +25,14 @@ async function pending(payload, context) {
     const generatedAt = new Date();
     const boundaries = shanghaiDayBoundaries(generatedAt);
     const tasks = await loadPendingTaskCandidates(openid, boundaries.upcomingEnd);
-    const validTasks = tasks.filter(task => isValidDate(task.dueAt));
+    const validTasks = tasks.filter(task => getEffectiveDueAt(task));
     const projectMap = await loadOwnedProjects(openid, validTasks);
     const groupMap = await loadGroups(validTasks);
     const sections = { overdue: [], today: [], upcoming: [] };
     for (const task of validTasks) {
       const project = projectMap[task.projectId];
       if (!project) continue;
-      const dueAt = new Date(task.dueAt);
+      const dueAt = getEffectiveDueAt(task);
       const category = classifyDueAt(dueAt, boundaries);
       if (!category) continue;
       const candidateGroup = task.groupId ? groupMap[task.groupId] : null;
@@ -63,19 +64,20 @@ async function loadPendingTaskCandidates(openid, upcomingEnd) {
   const baseFilter = {
     ownerId: openid,
     status: _.nin([TASK_STATUS.COMPLETED, TASK_STATUS.APPROVED, TASK_STATUS.CLOSED_BY_PARENT, TASK_STATUS.CANCELLED]),
-    dueAt: _.lt(upcomingEnd)
   };
   const fields = {
     _id: true, projectId: true, groupId: true, title: true,
     priority: true, status: true, scheduleType: true,
-    startAt: true, dueAt: true
+    startAt: true, dueAt: true, endAt: true
   };
-  const [nullDeletedAt, missingDeletedAt] = await Promise.all([
-    getAll(db.collection('tasks').where({ ...baseFilter, deletedAt: _.eq(null) }).field(fields)),
-    getAll(db.collection('tasks').where({ ...baseFilter, deletedAt: _.exists(false) }).field(fields))
-  ]);
+  const queries = [];
+  for (const deletedAt of [_.eq(null), _.exists(false)]) {
+    queries.push(getAll(db.collection('tasks').where({ ...baseFilter, deletedAt, dueAt: _.lt(upcomingEnd) }).field(fields)));
+    queries.push(getAll(db.collection('tasks').where({ ...baseFilter, deletedAt, scheduleType: 'range', endAt: _.lt(upcomingEnd) }).field(fields)));
+  }
+  const results = await Promise.all(queries);
   const taskMap = new Map();
-  for (const task of nullDeletedAt.concat(missingDeletedAt)) taskMap.set(task._id, task);
+  for (const tasks of results) for (const task of tasks) taskMap.set(task._id, task);
   return [...taskMap.values()];
 }
 
@@ -99,11 +101,6 @@ function comparePendingTasks(a, b) {
   const priorityDiff = PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority];
   if (priorityDiff) return priorityDiff;
   return String(a._id).localeCompare(String(b._id));
-}
-
-function isValidDate(value) {
-  const date = value ? new Date(value) : null;
-  return Boolean(date && !Number.isNaN(date.getTime()));
 }
 
 async function loadOwnedProjects(openid, tasks) {

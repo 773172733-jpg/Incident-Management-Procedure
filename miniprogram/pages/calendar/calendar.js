@@ -1,6 +1,7 @@
 const calendarService = require('../../services/calendar-service');
 const taskService = require('../../services/task-service');
 const { priorityLabel, statusLabel } = require('../../utils/format');
+const { getEffectiveDueAt, isTaskOverdue } = require('../../utils/task-time');
 
 Page({
   data: { viewYear: 0, viewMonth: 0, monthTitle: '', days: [], tasks: [], selectedKey: '', selectedLabel: '', selectedTasks: [], summary: { total: 0, pending: 0, completed: 0, overdue: 0 }, monthTaskCount: 0, loading: true, monthChanging: false, error: '', operatingId: '' },
@@ -75,10 +76,10 @@ Page({
   }
 });
 
-function decorateTask(task) { const isCompleted = task.status === 'completed' || task.status === 'approved'; const target = task.dueAt || task.endAt; return { ...task, isCompleted, priorityText: priorityLabel(task.priority), statusText: statusLabel(task.status), timeText: taskTimeText(task), overdue: !isCompleted && task.status !== 'closed_by_parent' && target && new Date(target).getTime() < Date.now() }; }
-function occursOn(task, key) { if (task.scheduleType === 'deadline') return dateKey(new Date(task.dueAt)) === key; if (task.scheduleType === 'range') return key >= dateKey(new Date(task.startAt)) && key <= dateKey(new Date(task.endAt)); return false; }
-function overlaps(task, start, end) { if (task.scheduleType === 'deadline') { const key = dateKey(new Date(task.dueAt)); return key >= start && key <= end; } if (task.scheduleType === 'range') return dateKey(new Date(task.startAt)) <= end && dateKey(new Date(task.endAt)) >= start; return false; }
-function taskTimeText(task) { if (task.scheduleType === 'deadline') return `截止 ${shortTime(task.dueAt)}`; return `${shortTime(task.startAt)}—${shortTime(task.endAt)}`; }
+function decorateTask(task) { const isCompleted = task.status === 'completed' || task.status === 'approved'; return { ...task, isCompleted, priorityText: priorityLabel(task.priority), statusText: statusLabel(task.status), timeText: taskTimeText(task), overdue: isTaskOverdue(task) }; }
+function occursOn(task, key) { if (task.scheduleType === 'deadline') return dateKey(getEffectiveDueAt(task)) === key; if (task.scheduleType === 'range') return key >= dateKey(new Date(task.startAt)) && key <= dateKey(getEffectiveDueAt(task)); return false; }
+function overlaps(task, start, end) { if (task.scheduleType === 'deadline') { const key = dateKey(getEffectiveDueAt(task)); return key >= start && key <= end; } if (task.scheduleType === 'range') return dateKey(new Date(task.startAt)) <= end && dateKey(getEffectiveDueAt(task)) >= start; return false; }
+function taskTimeText(task) { if (task.scheduleType === 'deadline') return `截止 ${shortTime(getEffectiveDueAt(task))}`; return `${shortTime(task.startAt)}—${shortTime(getEffectiveDueAt(task))}`; }
 function shortTime(value) { const date = new Date(value); if (Number.isNaN(date.getTime())) return '时间待确认'; const pad = number => String(number).padStart(2, '0'); return `${date.getMonth() + 1}月${date.getDate()}日 ${pad(date.getHours())}:${pad(date.getMinutes())}`; }
 function dateKey(date) { if (Number.isNaN(date.getTime())) return ''; const pad = number => String(number).padStart(2, '0'); return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`; }
 function parseKey(key) { const parts = key.split('-').map(Number); return new Date(parts[0], parts[1] - 1, parts[2]); }

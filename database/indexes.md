@@ -38,6 +38,8 @@
 
 `activity.pending` 依赖 `ownerId + deletedAt + status + dueAt` 复合索引，字段方向均为升序；接口按当前用户、未删除状态、任务状态和截止时间范围查询待处理任务。
 
+阶段 4D 兼容旧 range 任务的 `endAt` 查询时，可能临时需要 `ownerId + deletedAt + status + scheduleType + endAt` 升序复合索引。新写入任务统一使用 `dueAt`，旧数据完成迁移后可评估移除该临时索引。
+
 ## 5. reminders
 
 | 索引字段 | 唯一 |
