@@ -104,6 +104,10 @@ async function sendWechatSubscription(reminder, task, project, dueAt) {
     });
   } catch (error) {
     const message = String(error && (error.errMsg || error.message) || error);
+    console.error('[reminder-worker] subscribeMessage.send failed:', {
+      errCode: error && (error.errCode || error.errcode || error.code),
+      errMsg: message
+    });
     if (!isRetryableWechatError(error, message)) throw nonRetryable(message);
     throw error;
   }

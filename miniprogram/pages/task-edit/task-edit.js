@@ -210,7 +210,9 @@ Page({
     if (!WECHAT_SUBSCRIPTION_TEMPLATE.enabled || !WECHAT_SUBSCRIPTION_TEMPLATE.id) {
       return Promise.resolve({ status: 'not_configured' });
     }
-    if (!wx.requestSubscribeMessage) return Promise.resolve({ status: 'unsupported' });
+    if (!wx.requestSubscribeMessage) {
+      return Promise.resolve({ status: 'unsupported' });
+    }
     return new Promise(resolve => {
       wx.requestSubscribeMessage({
         tmplIds: [WECHAT_SUBSCRIPTION_TEMPLATE.id],
