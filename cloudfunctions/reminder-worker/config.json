@@ -1,0 +1,9 @@
+{
+  "triggers": [
+    {
+      "name": "reminder_worker_every_5_minutes",
+      "type": "timer",
+      "config": "0 */5 * * * * *"
+    }
+  ]
+}
