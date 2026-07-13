@@ -2,8 +2,9 @@ const assert = require('assert');
 const fs = require('fs');
 const {
   normalizeReminderConfig, calculateScheduledAt, taskCanBeReminded,
-  dedupeKey, syncTaskReminder, cancelTaskReminder
+  dedupeKey, syncTaskReminder, cancelTaskReminder, syncWechatSubscription, buildWechatPagePath
 } = require('../cloudfunctions/api/common/reminder');
+const { WECHAT_SUBSCRIPTION_TEMPLATE } = require('../cloudfunctions/api/common/wechat-subscription');
 
 const dueAt = new Date('2026-07-20T10:00:00+08:00');
 const now = new Date('2026-07-20T08:00:00+08:00');
@@ -25,16 +26,19 @@ assert.equal(taskCanBeReminded({ ...task, deletedAt: now }, project), false);
 assert.equal(taskCanBeReminded({ ...task, scheduleType: 'range', startAt: now }, project), true);
 assert.equal(taskCanBeReminded({ ...task, reminderMode: undefined }, project), true);
 assert.equal(dedupeKey('u1', 't1'), 'u1:t1:in_app');
+assert.equal(dedupeKey('u1', 't1', 'wechat_subscription'), 'u1:t1:wechat_subscription');
+assert.equal(buildWechatPagePath('p 1', 't 1'), '/pages/project-detail/project-detail?id=p%201&taskId=t%201');
 
 const workerSource = fs.readFileSync(require.resolve('../cloudfunctions/reminder-worker/index'), 'utf8');
 const routerSource = fs.readFileSync(require.resolve('../cloudfunctions/api/router'), 'utf8');
 const reminderModule = require('../cloudfunctions/api/modules/reminder');
 assert(workerSource.includes("status: 'processing'"));
 assert(workerSource.includes("status: 'triggered'"));
+assert(workerSource.includes("status: 'sent'"));
 assert(workerSource.includes('processingAt: _.lte(staleBefore)'));
-assert(!workerSource.includes('sendSubscribeMessage'));
+assert(workerSource.includes('subscribeMessage.send'));
 assert(routerSource.includes('reminder: reminderModule'));
-['getByTask', 'upsert', 'cancel', 'listUnread', 'markRead', 'markAllRead'].forEach(name => assert.equal(typeof reminderModule[name], 'function'));
+['getByTask', 'upsert', 'cancel', 'getWechatSubscriptionByTask', 'upsertWechatSubscription', 'cancelWechatSubscription', 'listUnread', 'markRead', 'markAllRead'].forEach(name => assert.equal(typeof reminderModule[name], 'function'));
 
 function mockDb() {
   const reminders = [];
@@ -87,5 +91,18 @@ function mockDb() {
   const expired = await syncTaskReminder(db, { ...task, reminderOffsetMinutes: 180 }, project, now);
   assert.equal(expired.expired, true);
   assert.equal(db.reminders[0].status, 'cancelled');
+  const wechat = await syncWechatSubscription(db, task, project, {
+    templateId: WECHAT_SUBSCRIPTION_TEMPLATE.id,
+    authorizationResult: 'accept'
+  }, now);
+  assert.equal(wechat.scheduled, true);
+  assert.equal(db.reminders.length, 2);
+  const wechatRow = db.reminders.find(item => item.channel === 'wechat_subscription');
+  assert.equal(wechatRow.status, 'pending');
+  assert.equal(wechatRow.templateId, WECHAT_SUBSCRIPTION_TEMPLATE.id);
+  assert.equal(wechatRow.sendDataSnapshot.thing1.value, '任务');
+  assert.equal(wechatRow.sendDataSnapshot.thing18.value, '事件');
+  await cancelTaskReminder(db, task.ownerId, task._id, { channel: 'wechat_subscription', statuses: ['pending', 'processing', 'failed'] });
+  assert.equal(wechatRow.status, 'cancelled');
   console.log('reminder workflow tests: PASS');
 })().catch(error => { console.error(error); process.exit(1); });

@@ -6,7 +6,8 @@ const auth = require('../../common/auth');
 const permission = require('../../common/permission');
 const { success, fail } = require('../../common/response');
 const { validateObjectId } = require('../../common/validator');
-const { normalizeReminderConfig, calculateScheduledAt, taskCanBeReminded, findReminder, cancelTaskReminder, syncTaskReminder } = require('../../common/reminder');
+const { normalizeReminderConfig, calculateScheduledAt, taskCanBeReminded, findReminder, cancelTaskReminder, syncTaskReminder, syncWechatSubscription, CHANNELS } = require('../../common/reminder');
+const { WECHAT_SUBSCRIPTION_TEMPLATE, validTemplateId } = require('../../common/wechat-subscription');
 const { getEffectiveDueAt } = require('../../common/task-time');
 const { getAll } = require('../../common/query');
 
@@ -26,14 +27,57 @@ async function getByTask(payload, context) {
   const owned = await ownedTask(openid, id.value);
   if (!owned) return fail('TASK_NOT_FOUND', '任务不存在或无权访问');
   const reminders = await findReminder(db, openid, id.value);
+  const wechatReminders = await findReminder(db, openid, id.value, CHANNELS.WECHAT_SUBSCRIPTION);
   return success({
     config: {
       reminderMode: owned.task.reminderMode || 'none',
       reminderOffsetMinutes: owned.task.reminderOffsetMinutes || null,
       reminderCustomAt: owned.task.reminderCustomAt || null
     },
-    reminder: reminders[0] || null
+    reminder: reminders[0] || null,
+    wechatReminder: wechatReminders[0] || null,
+    wechatTemplate: WECHAT_SUBSCRIPTION_TEMPLATE.enabled ? WECHAT_SUBSCRIPTION_TEMPLATE : null
   });
+}
+
+async function getWechatSubscriptionByTask(payload, context) {
+  const openid = auth.getUserId(context), id = validateObjectId(payload.taskId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  if (!id.valid) return fail('INVALID_PARAMS', id.message);
+  const owned = await ownedTask(openid, id.value);
+  if (!owned) return fail('TASK_NOT_FOUND', '任务不存在或无权访问');
+  const reminders = await findReminder(db, openid, id.value, CHANNELS.WECHAT_SUBSCRIPTION);
+  return success({ reminder: reminders[0] || null, template: WECHAT_SUBSCRIPTION_TEMPLATE });
+}
+
+async function upsertWechatSubscription(payload, context) {
+  const openid = auth.getUserId(context), id = validateObjectId(payload.taskId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  if (!id.valid) return fail('INVALID_PARAMS', id.message);
+  if (!validTemplateId(payload.templateId)) return fail('INVALID_TEMPLATE', '微信提醒模板未配置');
+  if (payload.authorizationResult !== 'accept') return fail('SUBSCRIPTION_NOT_ACCEPTED', '用户未授权微信服务通知');
+  const owned = await ownedTask(openid, id.value);
+  if (!owned || owned.task.deletedAt || owned.project.deletedAt) return fail('TASK_NOT_FOUND', '任务不存在或无权修改');
+  if (!taskCanBeReminded(owned.task, owned.project)) return fail('INVALID_PARAMS', '当前任务不能设置微信提醒');
+  const result = await syncWechatSubscription(db, owned.task, owned.project, {
+    templateId: payload.templateId,
+    authorizationResult: payload.authorizationResult,
+    authorizationSource: 'task_edit'
+  });
+  if (result.warning && !result.expired) return fail('INVALID_PARAMS', result.warning);
+  if (!result.scheduled) return fail('INVALID_PARAMS', result.warning || '微信提醒时间无效');
+  return success({ reminder: result }, '微信提醒已开启');
+}
+
+async function cancelWechatSubscription(payload, context) {
+  const openid = auth.getUserId(context), id = validateObjectId(payload.taskId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  if (!id.valid) return fail('INVALID_PARAMS', id.message);
+  await cancelTaskReminder(db, openid, id.value, {
+    channel: CHANNELS.WECHAT_SUBSCRIPTION,
+    statuses: ['pending', 'processing', 'failed']
+  });
+  return success(null, '微信提醒已关闭');
 }
 
 async function upsert(payload, context) {
@@ -111,4 +155,8 @@ async function markAllRead(payload, context) {
   return success({ updated: result.stats ? result.stats.updated : 0 }, '提醒已全部标为已读');
 }
 
-module.exports = { getByTask, upsert, cancel, listUnread, markRead, markAllRead };
+module.exports = {
+  getByTask, upsert, cancel,
+  getWechatSubscriptionByTask, upsertWechatSubscription, cancelWechatSubscription,
+  listUnread, markRead, markAllRead
+};

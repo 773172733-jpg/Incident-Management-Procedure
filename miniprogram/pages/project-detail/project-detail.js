@@ -6,7 +6,7 @@ const { getEffectiveDueAt, isTaskOverdue } = require('../../utils/task-time');
 
 Page({
   data: {
-    id: '', project: null, tasks: [], filteredTasks: [], groups: [], groupTabs: [],
+    id: '', targetTaskId: '', project: null, tasks: [], filteredTasks: [], groups: [], groupTabs: [],
     groupId: 'all', priority: 'all', hasActiveFilter: false,
     priorityOptions: [
       { value: 'all', label: '全部', tone: 'primary' },
@@ -26,6 +26,7 @@ Page({
     const right = menu ? Math.max(96, system.windowWidth - menu.left + 8) : 16;
     this.setData({
       id: query.id || '',
+      targetTaskId: query.taskId || '',
       navStyle: `padding-top:${statusBar}px;height:${navHeight}px;padding-right:${right}px`
     });
   },
@@ -48,8 +49,13 @@ Page({
     const rawProject = projectRes.data.project;
     const project = this.decorateProject(rawProject, taskRes.data.tasks || []);
     const tasks = this.sortTasks((taskRes.data.tasks || []).map(item => this.decorateTask(item)));
-    this.setData({ project, tasks, groups: groupRes.data.groups || [], loading: false, error: '' });
+    const targetTask = this.data.targetTaskId ? tasks.find(task => task._id === this.data.targetTaskId) : null;
+    this.setData({
+      project, tasks, groups: groupRes.data.groups || [], loading: false, error: '',
+      ...(targetTask ? { groupId: targetTask.groupKey || '', priority: targetTask.priority || 'all' } : {})
+    });
     this.refreshDerivedData();
+    if (this.data.targetTaskId && !targetTask) wx.showToast({ title: '任务不存在或已删除', icon: 'none' });
   },
 
   decorateProject(project, tasks) {
