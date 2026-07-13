@@ -17,15 +17,29 @@ function callApi(module, action, payload = {}) {
       name: CLOUD_FUNCTIONS.API,
       data: { module, action, payload },
       success: (res) => {
-        const result = res.result || {};
+        const result = res.result;
+        if (!result || typeof result.success !== 'boolean') {
+          console.error('[api] ' + module + '.' + action + ' invalid response:', res);
+          resolve({
+            success: false,
+            code: 'INVALID_CLOUD_RESPONSE',
+            message: '云函数返回格式异常，请查看开发者工具控制台',
+            data: null
+          });
+          return;
+        }
         resolve(result);
       },
       fail: (err) => {
         console.error('[api] ' + module + '.' + action + ' failed:', err);
+        const detail = String((err && (err.errMsg || err.message)) || '');
+        const functionMissing = /FunctionName|function not found|-501000/i.test(detail);
         resolve({
           success: false,
-          code: 'NETWORK_ERROR',
-          message: '网络异常，请检查网络后重试',
+          code: functionMissing ? 'CLOUD_FUNCTION_NOT_FOUND' : 'CLOUD_CALL_FAILED',
+          message: functionMissing
+            ? '云函数 api 尚未部署成功，请检查当前云环境'
+            : '云函数调用失败，请查看开发者工具控制台',
           data: null
         });
       }

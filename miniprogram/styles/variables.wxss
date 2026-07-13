@@ -12,6 +12,7 @@ page {
   --success: #22B573;
   --warning: #F6B90A;
   --danger: #F04A4A;
+  --info: #4E8DF5;
 
   /* 圆角 */
   --radius-card: 16px;
@@ -21,8 +22,8 @@ page {
   --radius-xs: 4px;
 
   /* 阴影 */
-  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.04);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 8px 24px rgba(31, 35, 41, 0.05);
+  --shadow-elevated: 0 10px 28px rgba(31, 35, 41, 0.08);
 
   /* 间距 */
   --spacing-xs: 4px;

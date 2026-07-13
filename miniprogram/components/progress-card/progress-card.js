@@ -1,0 +1,1 @@
+Component({properties:{progress:{type:Number,value:0},completed:{type:Number,value:0},total:{type:Number,value:0},nearest:{type:String,value:''},color:{type:String,value:'#FF6B35'}},data:{safeProgress:0},observers:{progress(value){const number=Number(value)||0;this.setData({safeProgress:Math.max(0,Math.min(100,number))});}}});

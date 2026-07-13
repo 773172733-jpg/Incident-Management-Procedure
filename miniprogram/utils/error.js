@@ -14,6 +14,8 @@ const ERROR_CODES = {
   INVALID_TIME_RANGE: { code: 'INVALID_TIME_RANGE', message: '时间范围无效' },
   REMINDER_PERMISSION_REQUIRED: { code: 'REMINDER_PERMISSION_REQUIRED', message: '需要提醒权限' },
   VERSION_CONFLICT: { code: 'VERSION_CONFLICT', message: '数据已被修改，请刷新后重试' },
+  INVALID_REORDER: { code: 'INVALID_REORDER', message: '排序数据无效，请刷新后重试' },
+  TASK_PARENT_PROJECT_DELETED: { code: 'TASK_PARENT_PROJECT_DELETED', message: '请先恢复所属事件' },
   RATE_LIMITED: { code: 'RATE_LIMITED', message: '操作太频繁，请稍后重试' },
   INTERNAL_ERROR: { code: 'INTERNAL_ERROR', message: '服务器错误，请稍后重试' },
   NETWORK_ERROR: { code: 'NETWORK_ERROR', message: '网络异常，请检查网络后重试' }

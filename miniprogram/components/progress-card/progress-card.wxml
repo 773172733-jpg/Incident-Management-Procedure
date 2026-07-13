@@ -1,0 +1,1 @@
+<view class="card"><view class="top"><text class="label">事件进度</text><text class="number">{{safeProgress}}%</text></view><view class="track"><view class="fill" style="width:{{safeProgress}}%;background:{{color}}"></view></view><view class="meta"><text>已完成 {{completed}} / {{total}} 个任务</text><text>{{total?nearest:'还没有分支任务'}}</text></view></view>

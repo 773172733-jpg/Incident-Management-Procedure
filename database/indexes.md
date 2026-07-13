@@ -1,4 +1,4 @@
-﻿# 事件树 - 数据库索引
+# 事件树 - 数据库索引
 
 ## 1. users
 
@@ -30,6 +30,7 @@
 | projectId + deletedAt + sortOrder | 否 |
 | projectId + status + sortOrder | 否 |
 | ownerId + status + dueAt | 否 |
+| ownerId + deletedAt + updatedAt | 否 |
 | assigneeId + status + dueAt | 否 |
 | parentTaskId + sortOrder | 否 |
 | groupId + sortOrder | 否 |
@@ -47,9 +48,11 @@
 
 | 索引字段 | 唯一 |
 |----------|------|
-| projectId + createdAt | 否 |
-| operatorId + createdAt | 否 |
-| visibleTo + createdAt | 否 |
+| operatorId + createdAt | 列表查询（按用户+时间倒序） | 否 |
+| projectId + createdAt | 项目详情页操作记录 | 否 |
+| operatorId + targetType + createdAt | 类型筛选（事件/任务/分组） | 否 |
+| operatorId + action + createdAt | 动作类型筛选 | 否 |
+| visibleTo + createdAt | 团队版预留 | 否 |
 
 ## 创建方式
 

@@ -1,5 +1,59 @@
+const userService = require('../../services/user-service');
+const projectService = require('../../services/project-service');
+const taskService = require('../../services/task-service');
+
 Page({
-  data: {},
-  onLoad() {},
-  onShow() {}
+  data: { user: null, counts: { archived: 0, recycle: 0 }, loading: true, error: '', savingSetting: false, reminderText: '提前30分钟', joinedText: '' },
+  onShow() { if (this.getTabBar()) this.getTabBar().setData({ selected: 3 }); this.load(); },
+  async load() {
+    this.setData({ loading: true, error: '' });
+    const [profileRes, archivedRes, deletedProjectRes, deletedTaskRes] = await Promise.all([
+      userService.getProfile(), projectService.list({ status: 'archived' }), projectService.list({ deleted: true }), taskService.listDeleted()
+    ]);
+    if (!profileRes.success || !archivedRes.success || !deletedProjectRes.success || !deletedTaskRes.success) {
+      console.error('[profile] load failed:', { profileRes, archivedRes, deletedProjectRes, deletedTaskRes });
+      return this.setData({ loading: false, error: profileRes.message || archivedRes.message || deletedProjectRes.message || deletedTaskRes.message || '个人信息加载失败' });
+    }
+    const user = profileRes.data.user;
+    this.setData({
+      user: { ...user, nickname: user.nickname || '微信用户', avatarUrl: user.avatarUrl || '' },
+      counts: { archived: (archivedRes.data.projects || []).length, recycle: (deletedProjectRes.data.projects || []).length + (deletedTaskRes.data.tasks || []).length },
+      reminderText: reminderLabel(user.defaultReminderMinutes),
+      joinedText: joinedLabel(user.createdAt), loading: false, error: ''
+    });
+  },
+  retry() { this.load(); },
+  archive() { wx.navigateTo({ url: '/pages/archive/archive' }); },
+  recycle() { wx.navigateTo({ url: '/pages/recycle-bin/recycle-bin' }); },
+  notifications() { wx.navigateTo({ url: '/pages/notification-settings/notification-settings' }); },
+  privacy() { wx.showModal({ title: '隐私说明', content: '事件树使用云端身份隔离并保存你的个人事件数据，不会在页面展示敏感身份标识。', showCancel: false }); },
+  about() { wx.showModal({ title: '关于事件树', content: '事件树 v1.0.0\n把大事件拆成可以一步步完成的小任务。', showCancel: false }); },
+  async chooseReminder() {
+    if (this.data.savingSetting) return;
+    const values = [0, 10, 30, 60, 1440];
+    const result = await actionSheet(['准时提醒', '提前10分钟', '提前30分钟', '提前1小时', '提前1天']);
+    if (result < 0) return;
+    await this.saveSettings({ defaultReminderMinutes: values[result] }, { reminderText: reminderLabel(values[result]) });
+  },
+  async changeSink(e) {
+    if (this.data.savingSetting) return;
+    const value = !!e.detail.value;
+    const previous = !!this.data.user.completedTaskSink;
+    this.setData({ 'user.completedTaskSink': value });
+    const success = await this.saveSettings({ completedTaskSink: value });
+    if (!success) this.setData({ 'user.completedTaskSink': previous });
+  },
+  async saveSettings(settings, localPatch = {}) {
+    this.setData({ savingSetting: true });
+    const res = await userService.updateSettings(settings);
+    this.setData({ savingSetting: false });
+    if (!res.success) { wx.showToast({ title: res.message, icon: 'none' }); return false; }
+    this.setData(localPatch);
+    wx.showToast({ title: res.message || '设置已保存', icon: 'success' });
+    return true;
+  }
 });
+
+function reminderLabel(minutes) { const map = { 0: '准时', 10: '提前10分钟', 30: '提前30分钟', 60: '提前1小时', 1440: '提前1天' }; return map[minutes] || '提前30分钟'; }
+function joinedLabel(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '个人事件空间' : `${date.getFullYear()}年${date.getMonth() + 1}月加入`; }
+function actionSheet(itemList) { return new Promise(resolve => wx.showActionSheet({ itemList, success: result => resolve(result.tapIndex), fail: () => resolve(-1) })); }

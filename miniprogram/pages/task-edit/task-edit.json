@@ -1,3 +1,8 @@
 {
-  "usingComponents": {}
+  "usingComponents": {
+    "empty-state": "/components/empty-state/empty-state",
+    "loading-skeleton": "/components/loading-skeleton/loading-skeleton",
+    "section-title": "/components/section-title/section-title",
+    "bottom-action-bar": "/components/bottom-action-bar/bottom-action-bar"
+  }
 }

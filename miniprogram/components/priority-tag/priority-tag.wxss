@@ -1,0 +1,1 @@
+.tag{display:inline-flex;align-items:center;padding:5rpx 13rpx;border-radius:999rpx;font-size:20rpx;white-space:nowrap}.tag--core{background:#FFF0F0;color:#F04A4A}.tag--important{background:#FFF8DF;color:#A87300}.tag--optional{background:#F1F2F4;color:#8A9099}
