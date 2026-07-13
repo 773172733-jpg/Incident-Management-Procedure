@@ -1,8 +1,21 @@
 const service = require('../../services/project-service');
 const validator = require('../../utils/validator');
 
+function formatLocalDate(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const pad = (number) => String(number).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
 Page({
-  data: { id: '', title: '', description: '', timeMode: 'none', startAt: '', endAt: '', saving: false, loading: false, error: '', iconType: 'text', iconValue: '', emojis: ['🏠','📚','✏️','🎨','💪','🎵','🌍','🛒','💼','🎮','💡','🌱','🍳','🎬','📷','🔧','🎯','🏃','🌿','💻'] },
+  data: {
+    id: '', title: '', description: '', timeMode: 'none', startAt: '', endAt: '',
+    saving: false, loading: false, error: '',
+    icon: 'circle', iconType: 'text', iconValue: '', themeColor: '#FF6B35',
+    emojis: ['🏠','📚','✏️','🎨','💪','🎵','🌍','🛒','💼','🎮','💡','🌱','🍳','🎬','📷','🔧','🎯','🏃','🌿','💻'],
+    themeColors: ['#FF6B35', '#E5484D', '#D97706', '#2E8B57', '#168C8C', '#3478F6', '#6E56CF', '#6B7280']
+  },
   async onLoad(query) {
     if (!query.id) return;
     this.setData({ id: query.id, loading: true, error: '' });
@@ -17,20 +30,22 @@ Page({
       themeColor: project.themeColor || '#FF6B35',
       iconType: project.iconType || 'text',
       iconValue: project.iconValue || '',
-      startAt: project.startAt ? new Date(project.startAt).toISOString().slice(0, 10) : '',
-      endAt: project.endAt ? new Date(project.endAt).toISOString().slice(0, 10) : '',
+      startAt: project.startAt ? formatLocalDate(project.startAt) : '',
+      endAt: project.endAt ? formatLocalDate(project.endAt) : '',
       loading: false,
       error: ''
     });
   },
   input(e) { this.setData({ [e.currentTarget.dataset.key]: e.detail.value }); },
   mode(e) {
-    this.setData({ timeMode: e.currentTarget.dataset.mode });
-    if (e.currentTarget.dataset.mode === 'none') {
-      this.setData({ startAt: '', endAt: '' });
-    }
+    const timeMode = e.currentTarget.dataset.mode;
+    const dates = timeMode === 'none'
+      ? { startAt: '', endAt: '' }
+      : timeMode === 'ongoing' ? { endAt: '' } : {};
+    this.setData({ timeMode, ...dates });
   },
   chooseIcon(e) { var v=e.currentTarget.dataset.value; this.setData({iconType:'emoji',iconValue:v}); },
+  chooseThemeColor(e) { this.setData({ themeColor: e.currentTarget.dataset.value }); },
   retry() { this.onLoad({ id: this.data.id }); },
   async save() {
     if (this.data.saving) return;
