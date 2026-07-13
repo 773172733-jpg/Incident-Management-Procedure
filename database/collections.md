@@ -14,3 +14,35 @@
 ## 创建方式
 
 在微信开发者工具 → 云开发 → 数据库 中手动创建这 6 个集合。
+
+## reminders 字段
+
+```js
+{
+  ownerId: String,
+  projectId: String,
+  taskId: String,
+  channel: 'in_app',
+  reminderMode: 'at_due' | 'offset' | 'custom',
+  offsetMinutes: Number | null,
+  dueAt: Date,
+  scheduledAt: Date,
+  status: 'pending' | 'processing' | 'triggered' | 'read' | 'cancelled' | 'failed',
+  dedupeKey: String,
+  retryCount: Number,
+  maxRetries: Number,
+  nextRetryAt: Date | null,
+  processingAt: Date | null,
+  triggeredAt: Date | null,
+  readAt: Date | null,
+  cancelledAt: Date | null,
+  failedAt: Date | null,
+  lastError: String,
+  taskTitleSnapshot: String,
+  projectTitleSnapshot: String,
+  createdAt: Date,
+  updatedAt: Date
+}
+```
+
+任务记录仅保存 `reminderMode`、`reminderOffsetMinutes`、`reminderCustomAt` 三个偏好字段，用于完成、删除或父事件关闭后按规则恢复，不保存队列状态。

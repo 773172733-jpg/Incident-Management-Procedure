@@ -10,6 +10,17 @@ const { TIME_MODE, PROJECT_STATUS, TASK_STATUS } = require('../../common/constan
 const { writeActivityLog } = require('../../common/logger');
 const { recalculateProjectProgress } = require('../../common/project-progress');
 const { getAll } = require('../../common/query');
+const { cancelTaskReminder, syncTaskReminder } = require('../../common/reminder');
+
+async function safelyCancelTaskReminder(task) {
+  try { await cancelTaskReminder(db, task.ownerId, task._id); }
+  catch (error) { console.warn('[project] reminder cancel failed:', task._id, error.message); }
+}
+
+async function safelySyncTaskReminder(task, project) {
+  try { await syncTaskReminder(db, task, project); }
+  catch (error) { console.warn('[project] reminder sync failed:', task._id, error.message); }
+}
 
 function cleanProjectInput(payload) {
   const title = validateProjectTitle(payload.title);
@@ -120,6 +131,8 @@ async function softDelete(payload, context) {
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt) return fail('NOT_FOUND', '事件不存在或无权删除');
   await db.collection('projects').doc(project._id).update({ data: { deletedAt: db.serverDate(), updatedAt: db.serverDate() } });
+  const tasks = await getAll(db.collection('tasks').where({ projectId: project._id, deletedAt: _.eq(null) })).catch(error => { console.warn('[project.softDelete] task reminder lookup failed:', error.message); return []; });
+  await Promise.all(tasks.map(task => safelyCancelTaskReminder(task)));
   await writeActivityLog({ projectId: project._id, operatorId: openid, action: 'project.deleted', targetType: 'project', targetId: project._id, targetTitleSnapshot: project.title, visibleTo: [openid] });
   return success(null, '事件已移入回收站');
 }
@@ -130,6 +143,8 @@ async function restore(payload, context) {
   const project = await getOwnedProject(check.value, openid);
   if (!project || !project.deletedAt) return fail('NOT_FOUND', '回收站中未找到该事件');
   await db.collection('projects').doc(project._id).update({ data: { deletedAt: null, updatedAt: db.serverDate() } });
+  const tasks = await getAll(db.collection('tasks').where({ projectId: project._id, deletedAt: _.eq(null) })).catch(error => { console.warn('[project.restore] task reminder lookup failed:', error.message); return []; });
+  await Promise.all(tasks.map(task => safelySyncTaskReminder(task, { ...project, deletedAt: null })));
   await writeActivityLog({ projectId: project._id, operatorId: openid, action: 'project.restored', targetType: 'project', targetId: project._id, targetTitleSnapshot: project.title, visibleTo: [openid] });
   return success(null, '事件已恢复');
 }
@@ -183,6 +198,7 @@ async function complete(payload, context) {
       } catch (e) {
         console.error('[project.complete] close task failed:', task._id, e.message);
       }
+      await safelyCancelTaskReminder(task);
       try {
         await writeActivityLog({
           projectId: project._id, taskId: task._id,
@@ -239,6 +255,7 @@ async function reopen(payload, context) {
 
   for (const task of closedTasks) {
     const previousStatus = task.statusBeforeParentClose || TASK_STATUS.TODO;
+    let restored = false;
     try {
       await db.collection('tasks').doc(task._id).update({
         data: {
@@ -248,9 +265,11 @@ async function reopen(payload, context) {
           updatedAt: db.serverDate()
         }
       });
+      restored = true;
     } catch (e) {
       console.warn('[project.reopen] restore task failed:', task._id, e.message);
     }
+    if (restored) await safelySyncTaskReminder({ ...task, status: previousStatus, statusBeforeParentClose: null }, { ...project, status: PROJECT_STATUS.ACTIVE });
     try {
       await writeActivityLog({
         projectId: project._id, taskId: task._id,

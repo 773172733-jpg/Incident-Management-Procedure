@@ -18,7 +18,7 @@ Page({
     this.setData({
       user: { ...user, nickname: user.nickname || '微信用户', avatarUrl: user.avatarUrl || '' },
       counts: { archived: (archivedRes.data.projects || []).length, recycle: (deletedProjectRes.data.projects || []).length + (deletedTaskRes.data.tasks || []).length },
-      reminderText: reminderLabel(user.defaultReminderMinutes),
+      reminderText: reminderLabel(user.defaultReminderMode, user.defaultReminderMinutes),
       joinedText: joinedLabel(user.createdAt), loading: false, error: ''
     });
   },
@@ -30,10 +30,11 @@ Page({
   about() { wx.showModal({ title: '关于事件树', content: '事件树 v1.0.0\n把大事件拆成可以一步步完成的小任务。', showCancel: false }); },
   async chooseReminder() {
     if (this.data.savingSetting) return;
-    const values = [0, 10, 30, 60, 1440];
-    const result = await actionSheet(['准时提醒', '提前10分钟', '提前30分钟', '提前1小时', '提前1天']);
+    const values = [{ mode: 'none', minutes: 30 }, { mode: 'at_due', minutes: 30 }, { mode: 'offset', minutes: 10 }, { mode: 'offset', minutes: 30 }, { mode: 'offset', minutes: 60 }, { mode: 'offset', minutes: 1440 }];
+    const result = await actionSheet(['不默认提醒', '截止时', '提前10分钟', '提前30分钟', '提前1小时', '提前1天']);
     if (result < 0) return;
-    await this.saveSettings({ defaultReminderMinutes: values[result] }, { reminderText: reminderLabel(values[result]) });
+    const value = values[result];
+    await this.saveSettings({ defaultReminderMode: value.mode, defaultReminderMinutes: value.minutes }, { reminderText: reminderLabel(value.mode, value.minutes), 'user.defaultReminderMode': value.mode, 'user.defaultReminderMinutes': value.minutes });
   },
   async changeSink(e) {
     if (this.data.savingSetting) return;
@@ -54,6 +55,6 @@ Page({
   }
 });
 
-function reminderLabel(minutes) { const map = { 0: '准时', 10: '提前10分钟', 30: '提前30分钟', 60: '提前1小时', 1440: '提前1天' }; return map[minutes] || '提前30分钟'; }
+function reminderLabel(mode, minutes) { if (mode === 'none') return '不默认提醒'; if (mode === 'at_due') return '截止时'; const map = { 10: '提前10分钟', 30: '提前30分钟', 60: '提前1小时', 1440: '提前1天' }; return map[minutes] || '提前30分钟'; }
 function joinedLabel(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '个人事件空间' : `${date.getFullYear()}年${date.getMonth() + 1}月加入`; }
 function actionSheet(itemList) { return new Promise(resolve => wx.showActionSheet({ itemList, success: result => resolve(result.tapIndex), fail: () => resolve(-1) })); }

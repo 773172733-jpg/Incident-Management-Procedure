@@ -17,7 +17,12 @@
         <view class="summary-item summary-item--today"><text class="summary-value">{{summary.today}}</text><text class="summary-label">今天到期</text></view>
         <view class="summary-item summary-item--upcoming"><text class="summary-value">{{summary.upcoming}}</text><text class="summary-label">即将到期</text></view>
       </view>
-      <empty-state wx:if="{{hasLoaded&&!summary.total}}" title="暂无待处理任务" description="今天和未来7天内没有需要处理的到期任务"></empty-state>
+      <view wx:if="{{unreadCount}}" class="reminder-panel">
+        <view class="reminder-panel__head"><view><text class="reminder-panel__title">提醒</text><text class="reminder-panel__count">{{unreadCount}}条未读</text></view><text class="reminder-panel__all" bindtap="markAllRemindersRead">全部已读</text></view>
+        <view wx:for="{{unreadReminders}}" wx:key="_id" class="reminder-item" data-item="{{item}}" bindtap="openReminder"><view class="reminder-bell"><view class="reminder-bell__body"></view></view><view class="reminder-copy"><view class="reminder-title-row"><text class="reminder-title">{{item.taskTitle}}</text><text wx:if="{{item.overdue}}" class="reminder-overdue">已逾期</text></view><text class="reminder-project">所属事件：{{item.projectTitle}}</text><text class="reminder-time">{{item.scheduledText}} · {{item.triggeredText}}</text></view><view class="reminder-arrow"></view></view>
+      </view>
+      <view wx:if="{{reminderError}}" class="reminder-error" bindtap="retry">{{reminderError}}，点击重试</view>
+      <empty-state wx:if="{{hasLoaded&&!summary.total&&!unreadCount}}" title="暂无待处理任务" description="今天和未来7天内没有需要处理的到期任务"></empty-state>
       <block wx:else>
         <section-title wx:if="{{sections.overdue.length}}" title="已逾期"></section-title>
         <schedule-task-card wx:for="{{sections.overdue}}" wx:key="_id" item="{{item}}" operating="{{operatingTaskId===item._id}}" bind:open="openTask" bind:toggle="toggleTask"></schedule-task-card>

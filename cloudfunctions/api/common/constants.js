@@ -9,7 +9,8 @@ const TASK_STATUS = { TODO: 'todo', DOING: 'doing', COMPLETED: 'completed', CLOS
 const PRIORITY = { CORE: 'core', IMPORTANT: 'important', OPTIONAL: 'optional' };
 const SOURCE_TYPE = { PERSONAL: 'personal', ASSIGNED: 'assigned' };
 const VISIBILITY = { PRIVATE: 'private', TEAM: 'team', SPECIFIED: 'specified' };
-const REMINDER_STATUS = { PENDING: 'pending', PROCESSING: 'processing', SENT: 'sent', CANCELLED: 'cancelled', FAILED: 'failed' };
+const REMINDER_STATUS = { PENDING: 'pending', PROCESSING: 'processing', TRIGGERED: 'triggered', READ: 'read', CANCELLED: 'cancelled', FAILED: 'failed' };
+const REMINDER_MODE = { NONE: 'none', AT_DUE: 'at_due', OFFSET: 'offset', CUSTOM: 'custom' };
 const LIMITS = {
   PROJECT_TITLE_MIN: 1, PROJECT_TITLE_MAX: 40, PROJECT_DESC_MAX: 1000,
   TASK_TITLE_MAX: 60, TASK_NOTE_MAX: 500, GROUP_NAME_MIN: 1, GROUP_NAME_MAX: 20
@@ -18,5 +19,5 @@ const SORT_STEP = 1000;
 
 module.exports = {
   TIME_MODE, SCHEDULE_TYPE, PROJECT_STATUS, TASK_STATUS,
-  PRIORITY, SOURCE_TYPE, VISIBILITY, REMINDER_STATUS, LIMITS, SORT_STEP
+  PRIORITY, SOURCE_TYPE, VISIBILITY, REMINDER_STATUS, REMINDER_MODE, LIMITS, SORT_STEP
 };

@@ -53,10 +53,21 @@
 
 | 索引字段 | 唯一 |
 |----------|------|
-| status + triggerAt | 否 |
-| userId + status + triggerAt | 否 |
-| taskId + status | 否 |
-| dedupeKey | 建议唯一 |
+| ownerId ASC + status ASC + scheduledAt ASC | 否 |
+| ownerId ASC + taskId ASC + channel ASC + status ASC | 否 |
+| status ASC + scheduledAt ASC | 否 |
+| status ASC + nextRetryAt ASC | 否 |
+| status ASC + processingAt ASC | 否 |
+| dedupeKey ASC | 是 |
+
+- `ownerId + status + scheduledAt`：`reminder.listUnread` 查询当前用户未读提醒。
+- `ownerId + taskId + channel + status`：`getByTask`、upsert 和任务联动查找同任务的 in_app 提醒。
+- `status + scheduledAt`：worker 扫描到期的 pending 提醒。
+- `status + nextRetryAt`：worker 扫描到达重试时间的 failed 提醒。
+- `status + processingAt`：worker 回收超过 10 分钟仍为 processing 的中断任务。
+- `dedupeKey`：唯一索引，保证每个用户、任务、channel 只有一条提醒记录。
+
+创建 `dedupeKey` 唯一索引前，应先在控制台确认现有记录没有重复值，也没有多条缺失该字段的旧记录。若构建失败，先记录冲突数据并人工处理；本阶段不自动批量迁移旧提醒。
 
 ## 6. activity_logs
 

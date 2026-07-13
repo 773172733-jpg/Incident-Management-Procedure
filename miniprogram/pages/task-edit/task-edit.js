@@ -1,5 +1,6 @@
 const taskService = require('../../services/task-service');
 const groupService = require('../../services/group-service');
+const userService = require('../../services/user-service');
 const { validateTaskTitle, validateTaskTime, validateNote } = require('../../utils/validator');
 
 const PRIORITIES = ['core', 'important', 'optional'];
@@ -8,6 +9,13 @@ Page({
   data: {
     id: '', projectId: '', title: '', note: '', priority: 'important',
     scheduleType: 'none', dueAt: '', dueTime: '', startAt: '', startTime: '', endAt: '', endTime: '',
+    reminderMode: 'none', reminderOffsetMinutes: 30, reminderCustomDate: '', reminderCustomTime: '',
+    reminderOptions: [
+      { mode: 'none', label: '不提醒' }, { mode: 'at_due', label: '截止时' },
+      { mode: 'offset', minutes: 10, label: '提前10分钟' }, { mode: 'offset', minutes: 30, label: '提前30分钟' },
+      { mode: 'offset', minutes: 60, label: '提前1小时' }, { mode: 'offset', minutes: 1440, label: '提前1天' },
+      { mode: 'custom', label: '自定义' }
+    ],
     groupId: '', groups: [], saving: false, loading: true, error: '', editMode: false,
     initialized: false, timeError: '', focusedField: ''
   },
@@ -16,14 +24,15 @@ Page({
     const projectId = query.projectId || '';
     const id = query.id || '';
     this.setData({ projectId, id, editMode: !!id, loading: true, error: '' });
-    const [groupsOk, taskOk] = await Promise.all([
+    const [groupsOk, taskOk, reminderOk] = await Promise.all([
       this.loadGroups(projectId),
-      id ? this.loadTask(id) : Promise.resolve(true)
+      id ? this.loadTask(id) : Promise.resolve(true),
+      id ? Promise.resolve(true) : this.loadDefaultReminder()
     ]);
     this.setData({
       loading: false,
       initialized: true,
-      error: groupsOk && taskOk ? '' : '表单加载失败，请重新加载'
+      error: groupsOk && taskOk && reminderOk ? '' : '表单加载失败，请重新加载'
     });
   },
 
@@ -54,6 +63,7 @@ Page({
     const due = dateTimeParts(task.scheduleType === 'deadline' ? effectiveDueAt : null);
     const start = dateTimeParts(task.startAt);
     const end = dateTimeParts(task.scheduleType === 'range' ? effectiveDueAt : null);
+    const custom = dateTimeParts(task.reminderCustomAt);
     this.setData({
       title: task.title || '',
       note: task.note || '',
@@ -62,8 +72,27 @@ Page({
       dueAt: due.date, dueTime: due.time,
       startAt: start.date, startTime: start.time,
       endAt: end.date, endTime: end.time,
+      reminderMode: task.reminderMode || 'none',
+      reminderOffsetMinutes: task.reminderOffsetMinutes || 30,
+      reminderCustomDate: custom.date, reminderCustomTime: custom.time,
       groupId: task.groupId || ''
     });
+    return true;
+  },
+
+  async loadDefaultReminder() {
+    try {
+      const res = await userService.getProfile();
+      if (!res.success) {
+        console.warn('[task-edit] default reminder unavailable:', res.message || res.code);
+        return true;
+      }
+      const user = res.data.user || {};
+      const mode = user.defaultReminderMode || 'offset';
+      this.setData({ reminderMode: mode, reminderOffsetMinutes: user.defaultReminderMinutes || 30 });
+    } catch (error) {
+      console.warn('[task-edit] default reminder failed:', error.message);
+    }
     return true;
   },
 
@@ -74,11 +103,17 @@ Page({
   chooseGroup(e) { this.setData({ groupId: e.currentTarget.dataset.id || '' }); },
   createGroup() { wx.navigateTo({ url: `/pages/group-manage/group-manage?projectId=${this.data.projectId}` }); },
   pickPriority(e) { const value = e.currentTarget.dataset.value; if (PRIORITIES.includes(value)) this.setData({ priority: value }); },
+  pickReminder(e) {
+    if (this.data.scheduleType === 'none') return wx.showToast({ title: '请先设置任务时间', icon: 'none' });
+    const mode = e.currentTarget.dataset.mode;
+    const minutes = Number(e.currentTarget.dataset.minutes) || null;
+    this.setData({ reminderMode: mode, ...(mode === 'offset' ? { reminderOffsetMinutes: minutes } : {}) });
+  },
 
   onSwitchMode(e) {
     const scheduleType = e.currentTarget.dataset.mode;
     if (scheduleType === 'none') {
-      this.setData({ scheduleType, dueAt: '', dueTime: '', startAt: '', startTime: '', endAt: '', endTime: '', timeError: '' });
+      this.setData({ scheduleType, dueAt: '', dueTime: '', startAt: '', startTime: '', endAt: '', endTime: '', reminderMode: 'none', reminderCustomDate: '', reminderCustomTime: '', timeError: '' });
     } else if (scheduleType === 'deadline') {
       this.setData({ scheduleType, dueTime: this.data.dueTime || '18:00', startAt: '', startTime: '', endAt: '', endTime: '', timeError: '' });
     } else {
@@ -107,6 +142,7 @@ Page({
     const dueAt = this.data.scheduleType === 'deadline' ? combineDateTime(this.data.dueAt, this.data.dueTime || '00:00') : undefined;
     const startAt = this.data.scheduleType === 'range' ? combineDateTime(this.data.startAt, this.data.startTime || '00:00') : undefined;
     const rangeDueAt = this.data.scheduleType === 'range' ? combineDateTime(this.data.endAt, this.data.endTime || '00:00') : undefined;
+    const reminderCustomAt = this.data.reminderMode === 'custom' ? combineDateTime(this.data.reminderCustomDate, this.data.reminderCustomTime || '00:00') : undefined;
     const error = validateTaskTitle(this.data.title)
       || validateNote(this.data.note)
       || validateTaskTime(startAt, rangeDueAt, dueAt, this.data.scheduleType)
@@ -122,6 +158,9 @@ Page({
       scheduleType: this.data.scheduleType,
       dueAt: this.data.scheduleType === 'range' ? rangeDueAt : dueAt,
       startAt,
+      reminderMode: this.data.scheduleType === 'none' ? 'none' : this.data.reminderMode,
+      reminderOffsetMinutes: this.data.reminderMode === 'offset' ? this.data.reminderOffsetMinutes : null,
+      reminderCustomAt,
       groupId: this.data.groupId || null
     };
     let res;
@@ -133,7 +172,8 @@ Page({
     }
     this.setData({ saving: false });
     if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
-    wx.showToast({ title: this.data.id ? '任务已更新' : '任务已创建', icon: 'success' });
+    if (res.data && res.data.reminderWarning) wx.showToast({ title: res.data.reminderWarning, icon: 'none', duration: 2500 });
+    else wx.showToast({ title: this.data.id ? '任务已更新' : '任务已创建', icon: 'success' });
     setTimeout(() => wx.navigateBack(), 500);
   }
 });

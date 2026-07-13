@@ -7,6 +7,7 @@ const taskModule = require('./modules/task/index');
 const groupModule = require('./modules/group/index');
 const activityModule = require('./modules/activity/index');
 const calendarModule = require('./modules/calendar/index');
+const reminderModule = require('./modules/reminder/index');
 
 const moduleMap = {
   user: userModule,
@@ -14,7 +15,8 @@ const moduleMap = {
   task: taskModule,
   group: groupModule,
   activity: activityModule,
-  calendar: calendarModule
+  calendar: calendarModule,
+  reminder: reminderModule
 };
 
 async function dispatch(moduleName, action, payload, context) {

@@ -1,4 +1,6 @@
 const activityService = require('../../services/activity-service');
+const reminderService = require('../../services/reminder-service');
+const projectService = require('../../services/project-service');
 const aFmt = require('../../utils/activity-format');
 Page({
   data: {
@@ -14,7 +16,7 @@ Page({
     dateGroups: [],
     summary: { overdue: 0, today: 0, upcoming: 0, total: 0 },
     sections: { overdue: [], today: [], upcoming: [] },
-    operatingTaskId: ''
+    operatingTaskId: '', unreadReminders: [], unreadCount: 0, reminderError: '', markingReminders: false
   },
   onShow() {
     if (this.getTabBar()) this.getTabBar().setData({ selected: 2 });
@@ -33,7 +35,8 @@ Page({
   async loadPending(refreshing) {
     try {
       this.setData({ loading: !this.data.hasLoaded, refreshing: refreshing === true, error: '' });
-      var res = await activityService.pending();
+      var results = await Promise.all([activityService.pending(), reminderService.listUnread()]);
+      var res = results[0], reminderRes = results[1];
       if (!res.success) {
         console.error('[activity] pending:', res);
         return this.setData({
@@ -47,6 +50,7 @@ Page({
         return { ...t, isCompleted: false, priorityText: tFmt.priorityLabel(t.priority), statusText: t.overdue ? '已逾期' : '待完成', timeText: pendingTimeText(t.dueAt) };
       };
       var data = res.data || {}, sections = data.sections || {};
+      var reminders = reminderRes.success ? (reminderRes.data.reminders || []).map(decorateReminder) : [];
       this.setData({
         summary: data.summary || emptySummary(),
         sections: {
@@ -54,6 +58,9 @@ Page({
           today: (sections.today || []).map(dec),
           upcoming: (sections.upcoming || []).map(dec)
         },
+        unreadReminders: reminders,
+        unreadCount: reminders.length,
+        reminderError: reminderRes.success ? '' : (reminderRes.message || '提醒加载失败'),
         loading: false, refreshing: false, hasLoaded: true, error: ''
       });
     } catch (e) {
@@ -82,6 +89,31 @@ Page({
     } finally {
       this.setData({ operatingTaskId: '' });
     }
+  },
+  async openReminder(e) {
+    var item = e.currentTarget.dataset.item;
+    if (!item || this.data.markingReminders) return;
+    this.setData({ markingReminders: true });
+    try {
+      var res = await reminderService.markRead(item._id);
+      if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
+      var reminders = this.data.unreadReminders.filter(function(reminder) { return reminder._id !== item._id; });
+      this.setData({ unreadReminders: reminders, unreadCount: reminders.length });
+      if (!item.projectId) return wx.showToast({ title: '所属事件已不存在', icon: 'none' });
+      var projectRes = await projectService.get(item.projectId);
+      if (!projectRes.success) return wx.showToast({ title: '所属事件已不存在', icon: 'none' });
+      wx.navigateTo({ url: '/pages/project-detail/project-detail?id=' + encodeURIComponent(item.projectId) + '&taskId=' + encodeURIComponent(item.taskId) });
+    } finally { this.setData({ markingReminders: false }); }
+  },
+  async markAllRemindersRead() {
+    if (!this.data.unreadCount || this.data.markingReminders) return;
+    this.setData({ markingReminders: true });
+    try {
+      var res = await reminderService.markAllRead();
+      if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
+      this.setData({ unreadReminders: [], unreadCount: 0 });
+      wx.showToast({ title: '已全部标为已读', icon: 'success' });
+    } finally { this.setData({ markingReminders: false }); }
   },
   async loadLogs(reset) {
     try {
@@ -126,4 +158,21 @@ function pendingTimeText(value) {
   if (Number.isNaN(date.getTime())) return '截止时间待确认';
   var pad = function(number) { return String(number).padStart(2, '0'); };
   return '截止 ' + (date.getMonth() + 1) + '月' + date.getDate() + '日 ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
+}
+
+function decorateReminder(item) {
+  var dueAt = new Date(item.dueAt), scheduledAt = new Date(item.scheduledAt), triggeredAt = new Date(item.triggeredAt);
+  return {
+    ...item,
+    taskTitle: item.taskTitleSnapshot || '未命名任务',
+    projectTitle: item.projectTitleSnapshot || '原事件',
+    scheduledText: validTimeText(scheduledAt, '计划'),
+    triggeredText: validTimeText(triggeredAt, '触发'),
+    overdue: !Number.isNaN(dueAt.getTime()) && dueAt.getTime() < Date.now()
+  };
+}
+function validTimeText(date, prefix) {
+  if (Number.isNaN(date.getTime())) return prefix + '时间待确认';
+  var pad = function(number) { return String(number).padStart(2, '0'); };
+  return prefix + ' ' + (date.getMonth() + 1) + '月' + date.getDate() + '日 ' + pad(date.getHours()) + ':' + pad(date.getMinutes());
 }

@@ -95,6 +95,7 @@ async function bootstrap(payload, context) {
         plan: 'free',
         planExpiredAt: null,
         defaultReminderMinutes: 30,
+        defaultReminderMode: 'offset',
         completedTaskSink: true,
         timezone: 'Asia/Shanghai',
         createdAt: now,
@@ -235,7 +236,7 @@ async function updateSettings(payload, context) {
   const openid = auth.getUserId(context);
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
 
-  const { defaultReminderMinutes, completedTaskSink } = payload || {};
+  const { defaultReminderMode, defaultReminderMinutes, completedTaskSink } = payload || {};
   const updateData = { updatedAt: new Date() };
 
   if (defaultReminderMinutes !== undefined) {
@@ -243,11 +244,15 @@ async function updateSettings(payload, context) {
     if (!valid.includes(defaultReminderMinutes)) return fail('INVALID_PARAMS', '默认提醒时间无效');
     updateData.defaultReminderMinutes = defaultReminderMinutes;
   }
+  if (defaultReminderMode !== undefined) {
+    if (!['none', 'at_due', 'offset'].includes(defaultReminderMode)) return fail('INVALID_PARAMS', '默认提醒模式无效');
+    updateData.defaultReminderMode = defaultReminderMode;
+  }
   if (completedTaskSink !== undefined) {
     if (typeof completedTaskSink !== 'boolean') return fail('INVALID_PARAMS', '完成任务排序设置无效');
     updateData.completedTaskSink = completedTaskSink;
   }
-  if (defaultReminderMinutes === undefined && completedTaskSink === undefined) return fail('INVALID_PARAMS', '没有可更新的设置');
+  if (defaultReminderMode === undefined && defaultReminderMinutes === undefined && completedTaskSink === undefined) return fail('INVALID_PARAMS', '没有可更新的设置');
 
   const db = getDb();
   const res = await db.collection('users').where({ openid }).update({ data: updateData });
