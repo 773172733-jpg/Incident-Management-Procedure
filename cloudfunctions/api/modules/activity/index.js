@@ -23,16 +23,7 @@ async function pending(payload, context) {
   try {
     const generatedAt = new Date();
     const boundaries = shanghaiDayBoundaries(generatedAt);
-    const tasks = await getAll(db.collection('tasks').where({
-      ownerId: openid,
-      deletedAt: _.eq(null),
-      status: _.nin([TASK_STATUS.COMPLETED, TASK_STATUS.APPROVED, TASK_STATUS.CLOSED_BY_PARENT, TASK_STATUS.CANCELLED]),
-      dueAt: _.lt(boundaries.upcomingEnd)
-    }).field({
-      _id: true, projectId: true, groupId: true, title: true,
-      priority: true, status: true, scheduleType: true,
-      startAt: true, dueAt: true
-    }));
+    const tasks = await loadPendingTaskCandidates(openid, boundaries.upcomingEnd);
     const validTasks = tasks.filter(task => isValidDate(task.dueAt));
     const projectMap = await loadOwnedProjects(openid, validTasks);
     const groupMap = await loadGroups(validTasks);
@@ -66,6 +57,26 @@ async function pending(payload, context) {
     console.error('[activity.pending]', err);
     return fail('INTERNAL_ERROR', '待处理任务查询失败');
   }
+}
+
+async function loadPendingTaskCandidates(openid, upcomingEnd) {
+  const baseFilter = {
+    ownerId: openid,
+    status: _.nin([TASK_STATUS.COMPLETED, TASK_STATUS.APPROVED, TASK_STATUS.CLOSED_BY_PARENT, TASK_STATUS.CANCELLED]),
+    dueAt: _.lt(upcomingEnd)
+  };
+  const fields = {
+    _id: true, projectId: true, groupId: true, title: true,
+    priority: true, status: true, scheduleType: true,
+    startAt: true, dueAt: true
+  };
+  const [nullDeletedAt, missingDeletedAt] = await Promise.all([
+    getAll(db.collection('tasks').where({ ...baseFilter, deletedAt: _.eq(null) }).field(fields)),
+    getAll(db.collection('tasks').where({ ...baseFilter, deletedAt: _.exists(false) }).field(fields))
+  ]);
+  const taskMap = new Map();
+  for (const task of nullDeletedAt.concat(missingDeletedAt)) taskMap.set(task._id, task);
+  return [...taskMap.values()];
 }
 
 function shanghaiDayBoundaries(now) {
