@@ -78,6 +78,16 @@ async function list(payload, context) {
   return success({ projects: res.data });
 }
 
+async function listDeleted(payload, context) {
+  const openid = auth.getUserId(context);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  const rows = await getAll(db.collection('projects').where({
+    ownerId: openid,
+    deletedAt: _.neq(null)
+  }).orderBy('updatedAt', 'desc'));
+  return success({ projects: rows.filter(project => project && project.deletedAt) });
+}
+
 async function update(payload, context) {
   const openid = auth.getUserId(context); const check = validateObjectId(payload.projectId);
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
@@ -280,7 +290,7 @@ async function recalculateProgressAction(payload, context) {
 }
 
 module.exports = {
-  create, get, list, update,
+  create, get, list, listDeleted, update,
   archive, restoreFromArchive, softDelete, restore,
   complete, reopen,
   recalculateProgress: recalculateProgressAction

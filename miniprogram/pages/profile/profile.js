@@ -8,7 +8,7 @@ Page({
   async load() {
     this.setData({ loading: true, error: '' });
     const [profileRes, archivedRes, deletedProjectRes, deletedTaskRes] = await Promise.all([
-      userService.getProfile(), projectService.list({ status: 'archived' }), projectService.list({ deleted: true }), taskService.listDeleted()
+      userService.getProfile(), projectService.list({ status: 'archived' }), projectService.listDeleted(), taskService.listDeleted()
     ]);
     if (!profileRes.success || !archivedRes.success || !deletedProjectRes.success || !deletedTaskRes.success) {
       console.error('[profile] load failed:', { profileRes, archivedRes, deletedProjectRes, deletedTaskRes });

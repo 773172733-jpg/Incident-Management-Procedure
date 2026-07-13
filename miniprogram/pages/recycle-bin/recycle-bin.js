@@ -8,7 +8,7 @@ Page({
   onShow() { this.load(); },
   async load() {
     this.setData({ loading: true, error: '' });
-    const [projectRes, taskRes] = await Promise.all([projectService.list({ deletedMode: 'deleted' }), taskService.listDeleted()]);
+    const [projectRes, taskRes] = await Promise.all([projectService.listDeleted(), taskService.listDeleted()]);
     if (!projectRes.success || !taskRes.success) {
       console.error('[recycle-bin] load failed:', { projectRes, taskRes });
       return this.setData({ loading: false, error: projectRes.message || taskRes.message || '回收站加载失败' });
@@ -24,6 +24,7 @@ Page({
     this.applyTab();
   },
   retry() { this.load(); },
+  onPullDownRefresh() { return this.load().finally(() => wx.stopPullDownRefresh()); },
   chooseTab(e) { this.setData({ tab: e.currentTarget.dataset.tab }, () => this.applyTab()); },
   applyTab() {
     this.setData({
