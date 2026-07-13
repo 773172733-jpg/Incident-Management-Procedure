@@ -78,4 +78,4 @@ Page({
 
 function editableModal(title, content) { return new Promise(resolve => wx.showModal({ title, editable: true, placeholderText: '分组名称（1—20字）', content, success: resolve, fail: () => resolve({ confirm: false }) })); }
 function chooseOption(title, itemList) { return new Promise(resolve => wx.showActionSheet({ alertText: title, itemList, success: result => resolve(result.tapIndex), fail: () => resolve(-1) })); }
-function confirmDelete(name) { return new Promise(resolve => wx.showModal({ title: '删除分组', content: `删除“${name}”不会删除其中任务，这些任务会进入“未分组”。`, confirmColor: '#F04A4A', success: result => resolve(!!result.confirm), fail: () => resolve(false) })); }
+function confirmDelete(name) { return new Promise(resolve => wx.showModal({ title: '删除分组', content: `删除「${name}」不会删除其中的分支任务，这些任务会进入「未分组」。`, confirmColor: '#F04A4A', success: result => resolve(!!result.confirm), fail: () => resolve(false) })); }

@@ -10,7 +10,6 @@ function getDb() {
   if (!_db) {
     cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
     _db = cloud.database();
-    console.log('[user] cloud.init + db ready');
   }
   return _db;
 }
@@ -41,15 +40,10 @@ function getLogger() {
  * 4. 返回用户信息 + 首页统计
  */
 async function bootstrap(payload, context) {
-  console.log('[user.bootstrap] start');
 
   try {
     // 1. 获取 OPENID
     const openid = auth.getUserId(context);
-    console.log('[user.bootstrap] wxContext', JSON.stringify({
-      hasOpenid: Boolean(openid),
-      openidLength: openid ? openid.length : 0
-    }));
 
     if (!openid) {
       return fail('OPENID_UNAVAILABLE', '无法获取当前微信用户身份');
@@ -59,11 +53,9 @@ async function bootstrap(payload, context) {
     const _ = db.command;
 
     // 2. 查询用户
-    console.log('[user.bootstrap] query current user');
     let userResult;
     try {
       userResult = await db.collection('users').where({ openid }).get();
-      console.log('[user.bootstrap] existing user count:', userResult.data.length);
     } catch (dbErr) {
       console.error('[user.bootstrap] query users failed', JSON.stringify({
         message: dbErr.message,
@@ -85,7 +77,6 @@ async function bootstrap(payload, context) {
 
     if (userResult.data.length === 0) {
       // 3. 新用户，自动创建
-      console.log('[user.bootstrap] creating new user');
       const now = new Date();
       const newUser = {
         openid: openid,
@@ -106,7 +97,6 @@ async function bootstrap(payload, context) {
 
       try {
         const addResult = await db.collection('users').add({ data: newUser });
-        console.log('[user.bootstrap] user created, _id=' + addResult._id);
         newUser._id = addResult._id;
         user = newUser;
         isNew = true;
@@ -125,10 +115,9 @@ async function bootstrap(payload, context) {
             metadata: {},
             visibleTo: [openid]
           });
-          console.log('[user.bootstrap] activity log written');
-        } catch (logErr) {
-          console.warn('[user.bootstrap] activity log write failed (non-blocking):', logErr.message);
-        }
+          } catch (logErr) {
+            console.warn('[user.bootstrap] activity log write failed (non-blocking):', logErr.message);
+          }
       } catch (addErr) {
         console.error('[user.bootstrap] create user failed', JSON.stringify({
           message: addErr.message,
@@ -147,7 +136,6 @@ async function bootstrap(payload, context) {
     } else {
       // 4. 已有用户，更新最后活跃时间
       user = userResult.data[0];
-      console.log('[user.bootstrap] existing user, updating lastActive');
       try {
         await db.collection('users').doc(user._id).update({
           data: { updatedAt: new Date() }
@@ -165,12 +153,11 @@ async function bootstrap(payload, context) {
       console.warn('[user.bootstrap] getDashboardStats failed (non-blocking):', statsErr.message);
     }
 
-    console.log('[user.bootstrap] success');
     return success({
       user: sanitizeUser(user),
       isNew: isNew,
       stats: stats
-    }, isNew ? '欢迎加入事件树' : '');
+    }, isNew ? '欢迎加入事有进度' : '');
   } catch (err) {
     console.error('[user.bootstrap] failed', JSON.stringify({
       message: err && err.message,

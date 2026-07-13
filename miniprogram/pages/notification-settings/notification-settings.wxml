@@ -1,7 +1,7 @@
 <view class="page notification-page">
   <view class="page-header">
     <text class="page-header__title">通知设置</text>
-    <text class="page-header__subtitle">管理新任务的默认提醒方式</text>
+    <text class="page-header__subtitle">管理分支任务的默认提醒方式</text>
   </view>
   <loading-skeleton wx:if="{{loading}}" rows="3"></loading-skeleton>
   <empty-state wx:elif="{{error}}" type="error" title="通知设置加载失败" description="{{error}}" action-text="重新加载" bind:action="retry"></empty-state>
@@ -9,7 +9,7 @@
   <block wx:else>
     <section-title title="默认提醒"></section-title>
     <view class="settings-card">
-      <settings-item title="新任务默认提醒" description="只影响之后新建的有时间任务" value="{{reminderText}}" icon="notice" disabled="{{saving}}" bind:select="chooseReminder"></settings-item>
+      <settings-item title="新建分支任务默认提醒" description="只影响之后新建的带有时间设置的分支任务" value="{{reminderText}}" icon="notice" disabled="{{saving}}" bind:select="chooseReminder"></settings-item>
     </view>
     <section-title title="小程序内提醒"></section-title>
     <view class="info-card">

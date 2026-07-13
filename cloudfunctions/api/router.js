@@ -20,11 +20,9 @@ const moduleMap = {
 };
 
 async function dispatch(moduleName, action, payload, context) {
-  console.log('[router] dispatch', JSON.stringify({ module: moduleName, action: action }));
 
   const mod = moduleMap[moduleName];
   if (!mod) {
-    console.warn('[router] module not found:', moduleName);
     return {
       success: false,
       code: 'INVALID_PARAMS',
@@ -35,7 +33,6 @@ async function dispatch(moduleName, action, payload, context) {
 
   const handler = mod[action];
   if (!handler) {
-    console.warn('[router] action not found:', moduleName + '.' + action);
     return {
       success: false,
       code: 'INVALID_PARAMS',
@@ -44,15 +41,7 @@ async function dispatch(moduleName, action, payload, context) {
     };
   }
 
-  console.log('[router] invoking handler:', moduleName + '.' + action);
   const result = await handler(payload, context);
-  console.log('[router] handler result', JSON.stringify({
-    module: moduleName,
-    action: action,
-    success: result && result.success,
-    code: result && result.code,
-    hasData: !!(result && result.data)
-  }));
   return result;
 }
 

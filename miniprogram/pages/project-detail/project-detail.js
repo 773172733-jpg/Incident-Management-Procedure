@@ -55,7 +55,7 @@ Page({
       ...(targetTask ? { groupId: targetTask.groupKey || '', priority: targetTask.priority || 'all' } : {})
     });
     this.refreshDerivedData();
-    if (this.data.targetTaskId && !targetTask) wx.showToast({ title: '任务不存在或已删除', icon: 'none' });
+    if (this.data.targetTaskId && !targetTask) wx.showToast({ title: '分支任务不存在或已删除', icon: 'none' });
   },
 
   decorateProject(project, tasks) {
@@ -135,11 +135,11 @@ Page({
   editTask(e) { const task = e.detail ? e.detail.item : e.currentTarget.dataset.item; wx.navigateTo({ url: `/pages/task-edit/task-edit?projectId=${this.data.id}&id=${task._id}` }); },
 
   async showProjectMenu() {
-    const items = ['编辑事件'];
+    const items = ['编辑大事件'];
     const project = this.data.project;
-    if (project && project.status === 'active') items.push('结束事件');
+    if (project && project.status === 'active') items.push('结束大事件');
     if (project && project.status === 'completed') items.push('重新打开');
-    items.push('归档事件', '删除事件');
+    items.push('归档大事件', '删除大事件');
     const result = await actionSheet(items);
     if (result < 0) return;
     if (result === 0) return this.edit();
@@ -164,23 +164,23 @@ Page({
     const incompleteCount = incompleteTasks.length;
     const totalTaskCount = allTasks.length;
 
-    let title = '结束事件';
-    let content = '确认结束此事件？';
+    let title = '结束大事件';
+    let content = '确认结束此大事件？';
     let confirmColor = '#FF6B35';
 
     if (incompleteCount > 0) {
-      title = '提前结束事件';
-      content = `当前还有 ${incompleteCount} 个未完成分支。结束事件后，它们会显示为"随事件结束"，不会算作已完成。`;
+      title = '提前结束大事件';
+      content = `当前还有 ${incompleteCount} 个未完成的分支任务。结束后，它们会显示为「随大事件结束」，不会算作已完成。`;
       confirmColor = '#F04A4A';
     } else if (totalTaskCount === 0) {
-      content = '该事件还没有分支任务，确认直接结束？';
+      content = '该大事件还没有分支任务，确认直接结束？';
     }
 
     const confirmed = await confirmModal(title, content, confirmColor);
     if (!confirmed) return;
 
     const res = await projectService.complete(this.data.id, incompleteCount > 0);
-    wx.showToast({ title: res.message || '事件已结束', icon: res.success ? 'success' : 'none' });
+    wx.showToast({ title: res.message || '大事件已结束', icon: res.success ? 'success' : 'none' });
     if (res.success) this.load();
   },
 

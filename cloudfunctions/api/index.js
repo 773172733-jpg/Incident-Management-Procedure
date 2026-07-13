@@ -9,13 +9,6 @@ exports.main = async (event = {}, context = {}) => {
   const action = event.action;
   const payload = event.payload || {};
 
-  console.log('[api] request', JSON.stringify({
-    requestId: context.requestId || '',
-    module: moduleName,
-    action: action,
-    payloadKeys: payload ? Object.keys(payload) : []
-  }));
-
   if (!moduleName || !action) {
     return {
       success: false,

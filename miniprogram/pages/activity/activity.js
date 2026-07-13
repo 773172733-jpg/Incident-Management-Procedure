@@ -9,8 +9,8 @@ Page({
     filter: 'all',
     filterOptions: [
       { key: 'all', label: '全部' },
-      { key: 'project', label: '事件' },
-      { key: 'task', label: '任务' },
+      { key: 'project', label: '大事件' },
+      { key: 'task', label: '分支任务' },
       { key: 'group', label: '分组' }
     ],
     dateGroups: [],
@@ -71,10 +71,10 @@ Page({
   retry() { if (this.data.tab === 'pending') this.loadPending(); else this.loadLogs(true); },
   openTask(e) {
     var item = e.detail.item;
-    if (!item || !item.projectId) return wx.showToast({ title: '所属事件已不存在', icon: 'none' });
+    if (!item || !item.projectId) return wx.showToast({ title: '所属大事件已不存在', icon: 'none' });
     wx.navigateTo({
       url: '/pages/project-detail/project-detail?id=' + encodeURIComponent(item.projectId) + '&taskId=' + encodeURIComponent(item._id),
-      fail: function() { wx.showToast({ title: '无法打开所属事件', icon: 'none' }); }
+      fail: function() { wx.showToast({ title: '无法打开所属大事件', icon: 'none' }); }
     });
   },
   async toggleTask(e) {
@@ -99,9 +99,9 @@ Page({
       if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
       var reminders = this.data.unreadReminders.filter(function(reminder) { return reminder._id !== item._id; });
       this.setData({ unreadReminders: reminders, unreadCount: reminders.length });
-      if (!item.projectId) return wx.showToast({ title: '所属事件已不存在', icon: 'none' });
+      if (!item.projectId) return wx.showToast({ title: '所属大事件已不存在', icon: 'none' });
       var projectRes = await projectService.get(item.projectId);
-      if (!projectRes.success) return wx.showToast({ title: '所属事件已不存在', icon: 'none' });
+      if (!projectRes.success) return wx.showToast({ title: '所属大事件已不存在', icon: 'none' });
       wx.navigateTo({ url: '/pages/project-detail/project-detail?id=' + encodeURIComponent(item.projectId) + '&taskId=' + encodeURIComponent(item.taskId) });
     } finally { this.setData({ markingReminders: false }); }
   },
@@ -164,8 +164,8 @@ function decorateReminder(item) {
   var dueAt = new Date(item.dueAt), scheduledAt = new Date(item.scheduledAt), triggeredAt = new Date(item.triggeredAt);
   return {
     ...item,
-    taskTitle: item.taskTitleSnapshot || '未命名任务',
-    projectTitle: item.projectTitleSnapshot || '原事件',
+    taskTitle: item.taskTitleSnapshot || '未命名分支任务',
+    projectTitle: item.projectTitleSnapshot || '原大事件',
     scheduledText: validTimeText(scheduledAt, '计划'),
     triggeredText: validTimeText(triggeredAt, '触发'),
     overdue: !Number.isNaN(dueAt.getTime()) && dueAt.getTime() < Date.now()

@@ -64,7 +64,7 @@ Page({
     const item = e.currentTarget.dataset.item || (e.detail && e.detail.item);
     if (!item || !item.projectId) return wx.showToast({ title: '目标不存在', icon: 'none' });
     const res = await projectService.get(item.projectId);
-    if (!res.success) return wx.showToast({ title: '该事件已移入回收站', icon: 'none' });
+    if (!res.success) return wx.showToast({ title: '该大事件已移入回收站', icon: 'none' });
     const taskQuery = item.entryType === 'task' ? `&taskId=${item.id}` : '';
     wx.navigateTo({ url: `/pages/project-detail/project-detail?id=${item.projectId}${taskQuery}` });
   },

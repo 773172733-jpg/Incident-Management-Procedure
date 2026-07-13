@@ -18,7 +18,7 @@ Page({
       stateText: statusLabel(item.status), extraText: `原进度 ${Math.max(0, Math.min(100, Number(item.progressCache) || 0))}%`
     }));
     const tasks = (taskRes.data.tasks || []).map(item => ({
-      ...item, deletedText: formatDateTime(item.deletedAt), priorityText: priorityLabel(item.priority), projectTitle: item.projectTitle || '原事件不存在'
+      ...item, deletedText: formatDateTime(item.deletedAt), priorityText: priorityLabel(item.priority), projectTitle: item.projectTitle || '原大事件不存在'
     }));
     this.setData({ projects, tasks, loading: false, error: '' });
     this.applyTab();
@@ -44,7 +44,7 @@ Page({
   },
   async restoreTask(e) {
     const item = e.currentTarget.dataset.item;
-    if (item.parentProjectDeleted) return wx.showToast({ title: '请先恢复所属事件', icon: 'none' });
+    if (item.parentProjectDeleted) return wx.showToast({ title: '请先恢复所属大事件', icon: 'none' });
     if (this.data.operatingId) return;
     this.setData({ operatingId: item._id });
     const res = await taskService.restore(item._id);

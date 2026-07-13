@@ -29,7 +29,7 @@ Page({
     if (!res || !res.success) {
       this.setData({
         loading: false,
-        error: res && res.message ? res.message : "加载失败，请下拉重试"
+        error: res && res.message ? res.message : "加载失败，请稍后重试"
       });
       return;
     }

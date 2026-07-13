@@ -1,6 +1,6 @@
 <view class="page form-page">
   <view class="page-header">
-    <text class="page-header__title">{{editMode?'编辑任务':'新建任务'}}</text>
+    <text class="page-header__title">{{editMode?'编辑分支任务':'新建分支任务'}}</text>
     <text class="page-header__subtitle">把任务信息整理清楚，执行会更轻松</text>
   </view>
   <loading-skeleton wx:if="{{loading}}" rows="4"></loading-skeleton>
@@ -9,8 +9,8 @@
     <section-title title="基础信息"></section-title>
     <view class="form-card">
       <view class="field {{focusedField==='title'?'field--focused':''}}">
-        <text class="label">任务名称</text>
-        <input class="input" placeholder="输入任务名称" value="{{title}}" data-key="title" bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" maxlength="60"/>
+        <text class="label">分支任务名称</text>
+        <input class="input" placeholder="输入分支任务名称" value="{{title}}" data-key="title" bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" maxlength="60"/>
         <text class="counter counter--inline">{{title.length}}/60</text>
       </view>
     </view>
@@ -54,7 +54,7 @@
     </view>
 
     <section-title title="任务备注"></section-title>
-    <view class="form-card"><view class="field {{focusedField==='note'?'field--focused':''}}"><textarea class="textarea" placeholder="补充任务说明，可选" value="{{note}}" data-key="note" bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" maxlength="500"/><text class="counter">{{note.length}}/500</text></view></view>
-    <bottom-action-bar text="{{editMode?'保存修改':'保存任务'}}" loading="{{saving}}" disabled="{{saving}}" bind:action="onSave"></bottom-action-bar>
+    <view class="form-card"><view class="field {{focusedField==='note'?'field--focused':''}}"><textarea class="textarea" placeholder="补充分支任务说明，可选" value="{{note}}" data-key="note" bindinput="onInput" bindfocus="onFocus" bindblur="onBlur" maxlength="500"/><text class="counter">{{note.length}}/500</text></view></view>
+    <bottom-action-bar text="{{editMode?'保存修改':'保存'}}" loading="{{saving}}" disabled="{{saving}}" bind:action="onSave"></bottom-action-bar>
   </block>
 </view>
