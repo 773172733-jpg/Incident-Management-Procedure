@@ -185,6 +185,7 @@ Page({
       && payload.reminderMode !== 'none';
 
     this.setData({ saving: true });
+    const subscriptionResult = wantsWechatReminder ? await this.requestWechatSubscription() : null;
     let res;
     try {
       res = this.data.id ? await taskService.update(this.data.id, payload) : await taskService.create(payload);
@@ -197,7 +198,6 @@ Page({
       return wx.showToast({ title: res.message, icon: 'none' });
     }
     const taskId = this.data.id || (res.data && res.data.task && res.data.task._id);
-    const subscriptionResult = wantsWechatReminder ? await this.requestWechatSubscription() : null;
     const wechatMessage = await this.syncWechatReminderAfterSave(taskId, wantsWechatReminder, subscriptionResult);
     this.setData({ saving: false });
     if (wechatMessage) wx.showToast({ title: wechatMessage, icon: 'none', duration: 2800 });
@@ -239,11 +239,16 @@ Page({
     if (subscriptionResult.status === 'reject') return '任务已保存。你未允许微信服务通知，小程序内提醒仍然有效';
     if (subscriptionResult.status === 'ban') return '任务已保存。微信服务通知已被关闭，可在小程序设置中重新开启';
     if (subscriptionResult.status !== 'accept') return '任务已保存，但微信提醒开启失败，请稍后重试';
-    const res = await reminderService.upsertWechatSubscription(taskId, {
-      templateId: WECHAT_SUBSCRIPTION_TEMPLATE.id,
-      authorizationResult: 'accept'
-    });
-    return res.success ? '任务已保存，微信提醒已开启' : (res.message || '任务已保存，但微信提醒开启失败');
+    try {
+      const res = await reminderService.upsertWechatSubscription(taskId, {
+        templateId: WECHAT_SUBSCRIPTION_TEMPLATE.id,
+        authorizationResult: 'accept'
+      });
+      return res.success ? '任务已保存，微信提醒已开启' : '任务已保存，但微信提醒开启失败，请稍后重试';
+    } catch (error) {
+      console.warn('[task-edit] wechat reminder upsert failed:', error && error.message);
+      return '任务已保存，但微信提醒开启失败，请稍后重试';
+    }
   }
 });
 

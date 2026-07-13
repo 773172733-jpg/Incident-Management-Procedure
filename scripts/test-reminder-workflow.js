@@ -32,6 +32,7 @@ assert.equal(buildWechatPagePath('p 1', 't 1'), '/pages/project-detail/project-d
 const workerSource = fs.readFileSync(require.resolve('../cloudfunctions/reminder-worker/index'), 'utf8');
 const routerSource = fs.readFileSync(require.resolve('../cloudfunctions/api/router'), 'utf8');
 const reminderModule = require('../cloudfunctions/api/modules/reminder');
+const taskEditSource = fs.readFileSync(require.resolve('../miniprogram/pages/task-edit/task-edit'), 'utf8');
 assert(workerSource.includes("status: 'processing'"));
 assert(workerSource.includes("status: 'triggered'"));
 assert(workerSource.includes("status: 'sent'"));
@@ -39,6 +40,8 @@ assert(workerSource.includes('processingAt: _.lte(staleBefore)'));
 assert(workerSource.includes('subscribeMessage.send'));
 assert(routerSource.includes('reminder: reminderModule'));
 ['getByTask', 'upsert', 'cancel', 'getWechatSubscriptionByTask', 'upsertWechatSubscription', 'cancelWechatSubscription', 'listUnread', 'markRead', 'markAllRead'].forEach(name => assert.equal(typeof reminderModule[name], 'function'));
+assert(taskEditSource.indexOf('requestWechatSubscription') < taskEditSource.indexOf('taskService.update'));
+assert(taskEditSource.includes("console.warn('[task-edit] wechat reminder upsert failed:'"));
 
 function mockDb() {
   const reminders = [];
