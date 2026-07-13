@@ -5,6 +5,7 @@
 
 const cloud = require('wx-server-sdk');
 const _ = cloud.database().command;
+const { getAll } = require('./query');
 
 let _db = null;
 function getDb() {
@@ -20,10 +21,9 @@ function getDb() {
  * 排除：已软删除、cancelled、closed_by_parent
  * 完成包括：completed、approved
  * @param {string} projectId - 项目 ID
- * @param {object} [transaction] - 可选数据库事务，CloudBase 暂传 null
  * @returns {Promise<{taskCount: number, completedTaskCount: number, progress: number}>}
  */
-async function recalculateProjectProgress(projectId, transaction) {
+async function recalculateProjectProgress(projectId) {
   const db = getDb();
   const valid = {
     projectId: projectId,
@@ -31,9 +31,9 @@ async function recalculateProjectProgress(projectId, transaction) {
     status: _.nin(['cancelled'])
   };
 
-  const tasks = await db.collection('tasks').where(valid).get();
-  const total = tasks.data.length;
-  const completed = tasks.data.filter(item => item.status === 'completed' || item.status === 'approved').length;
+  const tasks = await getAll(db.collection('tasks').where(valid));
+  const total = tasks.length;
+  const completed = tasks.filter(item => item.status === 'completed' || item.status === 'approved').length;
   const progress = total ? Math.round(completed * 100 / total) : 0;
 
   const updateData = {
@@ -43,11 +43,7 @@ async function recalculateProjectProgress(projectId, transaction) {
     updatedAt: db.serverDate()
   };
 
-  if (transaction) {
-    await transaction.collection('projects').doc(projectId).update({ data: updateData });
-  } else {
-    await db.collection('projects').doc(projectId).update({ data: updateData });
-  }
+  await db.collection('projects').doc(projectId).update({ data: updateData });
 
   return { taskCount: total, completedTaskCount: completed, progress };
 }

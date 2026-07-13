@@ -55,7 +55,7 @@ async function remove(payload, context) {
   const project = await projectFor(openid, group.projectId); if (!project) return fail('FORBIDDEN', '无权操作该分组');
   await db.collection('tasks').where({ projectId: project._id, groupId: group._id, deletedAt: null }).update({ data: { groupId: null, updatedAt: db.serverDate() } });
   await db.collection('project_groups').doc(group._id).update({ data: { deletedAt: db.serverDate(), updatedAt: db.serverDate() } });
-  await recalculateProjectProgress(project._id, openid);
+  await recalculateProjectProgress(project._id);
   await writeActivityLog({ projectId: project._id, groupId: group._id, operatorId: openid, action: 'group.deleted', targetType: 'group', targetId: group._id, targetTitleSnapshot: group.name, before: { deletedAt: null }, after: { deletedAt: 'serverDate', taskGroupId: null }, visibleTo: [openid] });
   return success(null, '分组已删除，任务已移至未分组');
 }
