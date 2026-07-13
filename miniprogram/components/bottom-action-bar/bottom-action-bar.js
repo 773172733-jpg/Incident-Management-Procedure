@@ -1,0 +1,1 @@
+Component({properties:{text:{type:String,value:'保存'},loading:{type:Boolean,value:false},disabled:{type:Boolean,value:false}},methods:{onTap(){if(!this.data.loading&&!this.data.disabled)this.triggerEvent('action');}}});

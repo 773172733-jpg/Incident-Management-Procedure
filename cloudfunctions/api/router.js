@@ -5,12 +5,16 @@ const userModule = require('./modules/user/index');
 const projectModule = require('./modules/project/index');
 const taskModule = require('./modules/task/index');
 const groupModule = require('./modules/group/index');
+const activityModule = require('./modules/activity/index');
+const calendarModule = require('./modules/calendar/index');
 
 const moduleMap = {
   user: userModule,
   project: projectModule,
   task: taskModule,
-  group: groupModule
+  group: groupModule,
+  activity: activityModule,
+  calendar: calendarModule
 };
 
 async function dispatch(moduleName, action, payload, context) {

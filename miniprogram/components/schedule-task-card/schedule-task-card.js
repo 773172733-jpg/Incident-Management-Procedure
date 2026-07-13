@@ -1,0 +1,1 @@
+Component({properties:{item:{type:Object,value:{}},operating:{type:Boolean,value:false}},methods:{open(){this.triggerEvent('open',{item:this.data.item});},toggle(){if(!this.data.operating&&this.data.item.status!=='closed_by_parent')this.triggerEvent('toggle',{item:this.data.item});}}});

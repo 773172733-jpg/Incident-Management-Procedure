@@ -59,7 +59,7 @@ async function bootstrap(payload, context) {
     const _ = db.command;
 
     // 2. 查询用户
-    console.log('[user.bootstrap] query users, openid=' + openid.substring(0, 8) + '...');
+    console.log('[user.bootstrap] query current user');
     let userResult;
     try {
       userResult = await db.collection('users').where({ openid }).get();
@@ -204,11 +204,20 @@ async function updateProfile(payload, context) {
   const openid = auth.getUserId(context);
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
 
-  const { nickname, avatarUrl } = payload;
+  const { nickname, avatarUrl } = payload || {};
   const updateData = { updatedAt: new Date() };
 
-  if (nickname !== undefined) updateData.nickname = nickname.trim().substring(0, 32);
-  if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+  if (nickname !== undefined) {
+    if (typeof nickname !== 'string') return fail('INVALID_PARAMS', '昵称格式无效');
+    const value = nickname.trim();
+    if (!value || value.length > 32) return fail('INVALID_PARAMS', '昵称需为1—32个字');
+    updateData.nickname = value;
+  }
+  if (avatarUrl !== undefined) {
+    if (typeof avatarUrl !== 'string' || avatarUrl.length > 1024) return fail('INVALID_PARAMS', '头像地址格式无效');
+    updateData.avatarUrl = avatarUrl;
+  }
+  if (nickname === undefined && avatarUrl === undefined) return fail('INVALID_PARAMS', '没有可更新的资料');
 
   const db = getDb();
   const res = await db.collection('users').where({ openid }).update({ data: updateData });
@@ -226,21 +235,23 @@ async function updateSettings(payload, context) {
   const openid = auth.getUserId(context);
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
 
-  const { defaultReminderMinutes, completedTaskSink } = payload;
+  const { defaultReminderMinutes, completedTaskSink } = payload || {};
   const updateData = { updatedAt: new Date() };
 
   if (defaultReminderMinutes !== undefined) {
     const valid = [0, 10, 30, 60, 1440];
-    if (valid.includes(defaultReminderMinutes)) {
-      updateData.defaultReminderMinutes = defaultReminderMinutes;
-    }
+    if (!valid.includes(defaultReminderMinutes)) return fail('INVALID_PARAMS', '默认提醒时间无效');
+    updateData.defaultReminderMinutes = defaultReminderMinutes;
   }
   if (completedTaskSink !== undefined) {
-    updateData.completedTaskSink = !!completedTaskSink;
+    if (typeof completedTaskSink !== 'boolean') return fail('INVALID_PARAMS', '完成任务排序设置无效');
+    updateData.completedTaskSink = completedTaskSink;
   }
+  if (defaultReminderMinutes === undefined && completedTaskSink === undefined) return fail('INVALID_PARAMS', '没有可更新的设置');
 
   const db = getDb();
-  await db.collection('users').where({ openid }).update({ data: updateData });
+  const res = await db.collection('users').where({ openid }).update({ data: updateData });
+  if (!res.stats.updated) return fail('UNAUTHORIZED', '用户不存在');
   return success(null, '设置已更新');
 }
 
