@@ -1,0 +1,29 @@
+<view class="page feedback-page">
+  <view class="page-header">
+    <view class="page-header__title">意见反馈</view>
+    <view class="page-header__subtitle">告诉我们哪里可以做得更好</view>
+  </view>
+
+  <section-title title="反馈类型"></section-title>
+  <view class="form-card">
+    <view class="category-row">
+      <view wx:for="{{categories}}" wx:key="value" class="category {{category===item.value?'category--active':''}}" data-value="{{item.value}}" bindtap="chooseCategory">
+        <view class="category-dot"></view>
+        <text>{{item.label}}</text>
+      </view>
+    </view>
+  </view>
+
+  <section-title title="反馈内容"></section-title>
+  <view class="form-card">
+    <textarea class="textarea" value="{{content}}" maxlength="500" placeholder="请描述你遇到的问题、操作过程或改进建议" bindinput="inputContent"></textarea>
+    <text class="counter {{content.length>=500?'counter--limit':''}}">{{content.length}}/500</text>
+  </view>
+
+  <view class="privacy-card">
+    <view class="privacy-icon"><view class="privacy-check"></view></view>
+    <text>请勿填写密码、身份证、银行卡等敏感信息。</text>
+  </view>
+
+  <bottom-action-bar text="提交反馈" loading="{{submitting}}" disabled="{{submitting}}" bind:action="submit"></bottom-action-bar>
+</view>

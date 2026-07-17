@@ -30,13 +30,14 @@
     <section-title title="通知与隐私"></section-title>
     <view class="settings-card">
       <settings-item title="通知设置" description="查看现有通知配置" icon="bell" semantic-icon="{{true}}" bind:select="notifications"></settings-item>
+      <settings-item title="意见反馈" description="提交问题或改进建议" icon="feedback" semantic-icon="{{true}}" bind:select="feedback"></settings-item>
       <settings-item title="隐私说明" description="了解个人数据如何保存" icon="shield" semantic-icon="{{true}}" bind:select="privacy"></settings-item>
       <settings-item title="关于有进度" description="产品说明与版本信息" icon="info" semantic-icon="{{true}}" bind:select="about"></settings-item>
     </view>
 
     <view class="about-card">
       <text class="about-name">有进度</text>
-      <text class="about-version">V1.1 测试版</text>
+      <text class="about-version">V1.2 测试版</text>
       <text class="about-description">把备忘录拆成可以一步步完成的分支任务。</text>
     </view>
   </block>

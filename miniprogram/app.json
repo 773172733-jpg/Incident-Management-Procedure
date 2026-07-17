@@ -10,7 +10,8 @@
     "pages/profile/profile",
     "pages/archive/archive",
     "pages/recycle-bin/recycle-bin",
-    "pages/notification-settings/notification-settings"
+    "pages/notification-settings/notification-settings",
+    "pages/feedback/feedback"
   ],
   "window": {
     "navigationBarBackgroundColor": "#FFFFFF",

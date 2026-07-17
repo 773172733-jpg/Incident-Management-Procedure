@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "意见反馈",
+  "usingComponents": {
+    "section-title": "/components/section-title/section-title",
+    "bottom-action-bar": "/components/bottom-action-bar/bottom-action-bar"
+  }
+}

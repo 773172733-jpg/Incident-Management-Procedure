@@ -26,8 +26,9 @@ Page({
   archive() { wx.navigateTo({ url: '/pages/archive/archive' }); },
   recycle() { wx.navigateTo({ url: '/pages/recycle-bin/recycle-bin' }); },
   notifications() { wx.navigateTo({ url: '/pages/notification-settings/notification-settings' }); },
-  privacy() { wx.showModal({ title: '隐私说明', content: '有进度使用云端身份隔离并保存你的个人数据，不会在页面展示敏感身份标识。', showCancel: false }); },
-  about() { wx.showModal({ title: '关于有进度', content: '有进度 V1.1 测试版（1.1.0-beta.1）\n把备忘录拆成可以一步步完成的分支任务。', showCancel: false }); },
+  feedback() { wx.navigateTo({ url: '/pages/feedback/feedback' }); },
+  privacy() { wx.showModal({ title: '隐私说明', content: '有进度使用云端身份隔离并保存你的个人数据，不会在页面展示敏感身份标识。当你主动提交意见反馈时，我们会收集你填写的反馈内容，以及用于区分用户和防止重复、恶意提交的云端身份标识。相关信息仅用于处理问题和改进产品。', showCancel: false }); },
+  about() { wx.showModal({ title: '关于有进度', content: '有进度 V1.2 测试版（1.2.0-beta.1）\n把备忘录拆成可以一步步完成的分支任务。', showCancel: false }); },
   async chooseReminder() {
     if (this.data.savingSetting) return;
     const values = [{ mode: 'none', minutes: 30 }, { mode: 'at_due', minutes: 30 }, { mode: 'offset', minutes: 10 }, { mode: 'offset', minutes: 30 }, { mode: 'offset', minutes: 60 }, { mode: 'offset', minutes: 1440 }];

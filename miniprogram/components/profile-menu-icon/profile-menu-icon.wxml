@@ -23,6 +23,9 @@
   <block wx:elif="{{type==='clock'}}">
     <view class="clock"><view class="clock-hand clock-hand--hour"></view><view class="clock-hand clock-hand--minute"></view></view>
   </block>
+  <block wx:elif="{{type==='feedback'}}">
+    <view class="feedback-bubble"><view class="feedback-line feedback-line--long"></view><view class="feedback-line feedback-line--short"></view></view>
+  </block>
   <block wx:else>
     <view class="info-circle"><view class="info-dot"></view><view class="info-line"></view></view>
   </block>
