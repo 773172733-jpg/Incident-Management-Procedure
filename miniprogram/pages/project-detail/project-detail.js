@@ -84,7 +84,7 @@ Page({
   },
 
   decorateTask(task) {
-    const isCompleted = task.status === 'completed' || task.status === 'approved';
+    const isCompleted = task.status === 'completed';
     return {
       ...task,
       groupKey: task.groupId || '',

@@ -95,6 +95,13 @@ async function run() {
   assert.equal(approved.completedTaskCount, 0);
   assert.equal(approved.allBranchesCompleted, false);
 
+  const homeCompletionSource = read('miniprogram/pages/home/home.js');
+  const detailCompletionSource = read('miniprogram/pages/project-detail/project-detail.js');
+  assert.match(homeCompletionSource, /isCompleted:\s*task\.status\s*===\s*["']completed["']/);
+  assert.doesNotMatch(homeCompletionSource, /isCompleted:[^\n]*approved/);
+  assert.match(detailCompletionSource, /const isCompleted\s*=\s*task\.status\s*===\s*["']completed["']/);
+  assert.doesNotMatch(detailCompletionSource, /const isCompleted[^\n]*approved/);
+
   const reopened = summarizeProjectTasks([
     task('completed'),
     task('todo')

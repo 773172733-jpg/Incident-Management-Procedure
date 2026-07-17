@@ -168,7 +168,7 @@ Page({
       priorityText: priorityLabel(task.priority),
       timeText: taskTimeText(task) || "未设置时间",
       statusText: statusLabel(task.status),
-      isCompleted: task.status === "completed" || task.status === "approved"
+      isCompleted: task.status === "completed"
     }));
     this.updateProjectItem(id, {
       previewLoading: false,
