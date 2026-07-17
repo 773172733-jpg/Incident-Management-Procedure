@@ -13,7 +13,8 @@ Page({
       ...item,
       iconText: item.iconValue || (item.title || '事').slice(0, 1),
       timeText: projectTimeText(item),
-      stateText: '已归档',
+      stateText: item.completedAt ? '已结束并归档' : '已归档',
+      primaryText: item.completedAt ? '重新打开' : '恢复',
       progressValue: Math.max(0, Math.min(100, Number(item.progressCache) || 0)),
       extraText: `归档于 ${formatDateTime(item.archivedAt || item.updatedAt)}`
     }));
@@ -23,14 +24,22 @@ Page({
   async restore(e) {
     const item = e.detail.item;
     if (this.data.operatingId) return;
-    const confirmed = await confirmModal('恢复备忘录', '恢复后，该备忘录会重新出现在首页。');
+    const ended = Boolean(item.completedAt);
+    const confirmed = await confirmModal(
+      ended ? '重新打开备忘录' : '恢复备忘录',
+      ended
+        ? '重新打开后，因备忘录结束而关闭的分支任务将恢复，备忘录会重新出现在首页。'
+        : '恢复后，该备忘录会重新出现在首页。'
+    );
     if (!confirmed) return;
     this.setData({ operatingId: item._id });
-    const res = await projectService.restoreFromArchive(item._id);
+    const res = ended
+      ? await projectService.reopen(item._id)
+      : await projectService.restoreFromArchive(item._id);
     this.setData({ operatingId: '' });
     if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
     this.setData({ items: this.data.items.filter(project => project._id !== item._id) });
-    wx.showToast({ title: '备忘录已恢复', icon: 'success' });
+    wx.showToast({ title: ended ? '备忘录已重新打开' : '备忘录已恢复', icon: ended ? 'none' : 'success' });
   },
   async remove(e) {
     const item = e.detail.item;

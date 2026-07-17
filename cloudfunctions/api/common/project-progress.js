@@ -4,9 +4,11 @@
  */
 
 const cloud = require('wx-server-sdk');
-const _ = cloud.database().command;
 const { getAll } = require('./query');
-const { allBranchesCompleted } = require('./project-state');
+const {
+  summarizeProjectTasks,
+  withProjectCompletionState
+} = require('./project-state');
 
 let _db = null;
 function getDb() {
@@ -27,6 +29,7 @@ function getDb() {
  */
 async function recalculateProjectProgress(projectId) {
   const db = getDb();
+  const _ = db.command;
   const valid = {
     projectId: projectId,
     deletedAt: _.eq(null),
@@ -34,25 +37,53 @@ async function recalculateProjectProgress(projectId) {
   };
 
   const tasks = await getAll(db.collection('tasks').where(valid));
-  const total = tasks.length;
-  const completed = tasks.filter(item => item.status === 'completed' || item.status === 'approved').length;
-  const progress = total ? Math.round(completed * 100 / total) : 0;
+  const summary = summarizeProjectTasks(tasks);
 
   const updateData = {
-    taskCountCache: total,
-    completedTaskCountCache: completed,
-    progressCache: progress,
+    taskCountCache: summary.taskCount,
+    completedTaskCountCache: summary.completedTaskCount,
+    progressCache: summary.progress,
     updatedAt: db.serverDate()
   };
 
   await db.collection('projects').doc(projectId).update({ data: updateData });
 
   return {
-    taskCount: total,
-    completedTaskCount: completed,
-    progress,
-    allBranchesCompleted: allBranchesCompleted(total, completed)
+    taskCount: summary.taskCount,
+    completedTaskCount: summary.completedTaskCount,
+    progress: summary.progress,
+    allBranchesCompleted: summary.allBranchesCompleted
   };
 }
 
-module.exports = { recalculateProjectProgress };
+async function loadProjectProgressStats(db, ownerId, projects) {
+  const projectIds = new Set((Array.isArray(projects) ? projects : [])
+    .map(project => project && project._id)
+    .filter(Boolean));
+  if (!projectIds.size) return [];
+
+  const tasks = await getAll(db.collection('tasks').where({
+    ownerId,
+    deletedAt: db.command.eq(null)
+  }).field({
+    projectId: true,
+    status: true,
+    deletedAt: true
+  }));
+  const grouped = new Map();
+  tasks.forEach(task => {
+    if (!projectIds.has(task.projectId)) return;
+    if (!grouped.has(task.projectId)) grouped.set(task.projectId, []);
+    grouped.get(task.projectId).push(task);
+  });
+
+  return projects.map(project => withProjectCompletionState(
+    project,
+    summarizeProjectTasks(grouped.get(project._id) || [])
+  ));
+}
+
+module.exports = {
+  recalculateProjectProgress,
+  loadProjectProgressStats
+};

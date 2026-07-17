@@ -1,10 +1,9 @@
 'use strict';
 
-const COMPLETED_STATUSES = new Set(['completed', 'approved']);
 const PRIORITY_RANK = { core: 0, important: 1, optional: 2 };
 
 function isCompletedTask(task) {
-  return Boolean(task && COMPLETED_STATUSES.has(task.status));
+  return Boolean(task && task.status === 'completed');
 }
 
 function dateRank(value) {

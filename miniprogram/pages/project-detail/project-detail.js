@@ -59,21 +59,25 @@ Page({
   },
 
   decorateProject(project, tasks) {
-    const progress = Math.max(0, Math.min(100, Number(project.progressCache) || 0));
-    const nearest = tasks
+    const validTasks = tasks.filter(item => item.status !== 'cancelled');
+    const completedTaskCount = validTasks.filter(item => item.status === 'completed').length;
+    const taskCount = validTasks.length;
+    const progress = taskCount ? Math.round(completedTaskCount * 100 / taskCount) : 0;
+    const nearest = validTasks
       .filter(item => item.status !== 'completed' && item.status !== 'approved' && item.status !== 'closed_by_parent' && getEffectiveDueAt(item))
       .sort((a, b) => getEffectiveDueAt(a) - getEffectiveDueAt(b))[0];
     return {
       ...project,
       progressCache: progress,
-      completedTaskCountCache: project.completedTaskCountCache || 0,
-      taskCountCache: project.taskCountCache || 0,
+      completedTaskCountCache: completedTaskCount,
+      taskCountCache: taskCount,
+      allBranchesCompleted: taskCount > 0 && completedTaskCount === taskCount,
       timeText: format.projectTimeText(project),
       statusText: format.statusLabel(project.status),
       iconText: project.iconValue || (project.title || '事').slice(0, 1),
       nearestTaskText: project.status === 'completed'
-        ? `已结束 · 已完成 ${project.completedTaskCountCache || 0}/${project.taskCountCache || 0}`
-        : nearest ? `最近截止：${nearest.title}` : (tasks.length ? '暂无临近任务' : '还没有分支任务')
+        ? `已结束 · 已完成 ${completedTaskCount}/${taskCount}`
+        : nearest ? `最近截止：${nearest.title}` : (validTasks.length ? '暂无临近任务' : '还没有分支任务')
     };
   },
 
@@ -135,25 +139,23 @@ Page({
   editTask(e) { const task = e.detail ? e.detail.item : e.currentTarget.dataset.item; wx.navigateTo({ url: `/pages/task-edit/task-edit?projectId=${this.data.id}&id=${task._id}` }); },
 
   async showProjectMenu() {
-    const items = ['编辑备忘录'];
     const project = this.data.project;
-    if (project && project.status === 'active') items.push('结束备忘录');
-    if (project && project.status === 'completed') items.push('重新打开');
-    items.push('归档备忘录', '删除备忘录');
-    const result = await actionSheet(items);
-    if (result < 0) return;
-    if (result === 0) return this.edit();
-    let index = 1;
+    const actions = [
+      { label: '编辑备忘录', run: () => this.edit() }
+    ];
     if (project && project.status === 'active') {
-      if (result === index) return this.completeProject();
-      index++;
+      actions.push({ label: '结束备忘录', run: () => this.completeProject() });
     }
-    if (project && project.status === 'completed') {
-      if (result === index) return this.reopenProject();
-      index++;
+    if (project && (project.status === 'completed' || (project.status === 'archived' && project.completedAt))) {
+      actions.push({ label: '重新打开', run: () => this.reopenProject() });
     }
-    if (result === index) return this.archiveProject();
-    if (result === index + 1) return this.deleteProject();
+    if (project && project.status !== 'archived') {
+      actions.push({ label: '归档备忘录', run: () => this.archiveProject() });
+    }
+    actions.push({ label: '删除备忘录', run: () => this.deleteProject() });
+    const result = await actionSheet(actions.map(item => item.label));
+    if (result < 0) return;
+    return actions[result].run();
   },
 
   async completeProject() {
@@ -180,15 +182,15 @@ Page({
     if (!confirmed) return;
 
     const res = await projectService.complete(this.data.id, incompleteCount > 0);
-    wx.showToast({ title: res.success ? '备忘录已结束' : (res.message || '操作失败，请稍后重试'), icon: res.success ? 'success' : 'none' });
-    if (res.success) this.load();
+    wx.showToast({ title: res.success ? '备忘录已结束并归档' : (res.message || '操作失败，请稍后重试'), icon: 'none' });
+    if (res.success) setTimeout(() => wx.navigateBack(), 500);
   },
 
   async reopenProject() {
     const confirmed = await confirmModal('重新打开备忘录', '重新打开后，因备忘录结束而关闭的分支任务将恢复。确定继续吗？');
     if (!confirmed) return;
     const res = await projectService.reopen(this.data.id);
-    wx.showToast({ title: res.success ? '备忘录已重新打开' : (res.message || '操作失败，请稍后重试'), icon: res.success ? 'success' : 'none' });
+    wx.showToast({ title: res.success ? '备忘录已重新打开' : (res.message || '操作失败，请稍后重试'), icon: 'none' });
     if (res.success) this.load();
   },
 

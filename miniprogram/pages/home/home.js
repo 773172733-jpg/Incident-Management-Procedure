@@ -37,7 +37,10 @@ Page({
   async load() {
     this.setData({ loading: true, error: "" });
 
-    const res = await projects.list({});
+    const res = await projects.list({
+      excludeArchived: true,
+      includeTaskStats: true
+    });
     if (!res || !res.success) {
       this.setData({
         loading: false,
@@ -48,8 +51,12 @@ Page({
 
     const rawItems = (res.data && res.data.projects) ? res.data.projects : [];
     const items = rawItems.map(function(item) {
-      const completed = Number(item.completedTaskCountCache) || 0;
-      const total = Number(item.taskCountCache) || 0;
+      const completed = Number(item.completedTaskCount !== undefined
+        ? item.completedTaskCount
+        : item.completedTaskCountCache) || 0;
+      const total = Number(item.taskCount !== undefined
+        ? item.taskCount
+        : item.taskCountCache) || 0;
       const progressValue = Number(item.progressCache) || 0;
       return {
         ...item,

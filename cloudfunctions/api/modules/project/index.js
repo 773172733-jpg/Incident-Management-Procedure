@@ -8,10 +8,21 @@ const { success, fail } = require('../../common/response');
 const { validateProjectTitle, validateTimeMode, validateObjectId } = require('../../common/validator');
 const { TIME_MODE, PROJECT_STATUS, TASK_STATUS } = require('../../common/constants');
 const { writeActivityLog } = require('../../common/logger');
-const { recalculateProjectProgress } = require('../../common/project-progress');
+const {
+  recalculateProjectProgress,
+  loadProjectProgressStats
+} = require('../../common/project-progress');
 const { getAll } = require('../../common/query');
 const { cancelTaskReminder, syncTaskReminder } = require('../../common/reminder');
-const { isProjectInTrash, withProjectCompletionState } = require('../../common/project-state');
+const {
+  isProjectInTrash,
+  isEndedArchivedProject,
+  isReopenableEndedProject,
+  buildCompletionArchiveState,
+  buildReopenedProjectState,
+  statusBeforeParentClose,
+  withProjectCompletionState
+} = require('../../common/project-state');
 const {
   CascadeDeleteError,
   clearOwnedTrash,
@@ -21,13 +32,35 @@ const {
 } = require('../../common/trash-cleanup');
 
 async function safelyCancelTaskReminder(task) {
-  try { await cancelTaskReminder(db, task.ownerId, task._id); }
-  catch (error) { console.warn('[project] reminder cancel failed:', task._id, error.message); }
+  try { return await cancelTaskReminder(db, task.ownerId, task._id); }
+  catch (error) {
+    console.warn('[project] reminder cancel failed:', task._id, error.message);
+    return { warning: '部分提醒暂未取消，请稍后重试' };
+  }
 }
 
 async function safelySyncTaskReminder(task, project) {
-  try { await syncTaskReminder(db, task, project); }
-  catch (error) { console.warn('[project] reminder sync failed:', task._id, error.message); }
+  try { return await syncTaskReminder(db, task, project); }
+  catch (error) {
+    console.warn('[project] reminder sync failed:', task._id, error.message);
+    return { warning: '部分小程序内提醒暂未恢复，请稍后重试' };
+  }
+}
+
+async function syncActiveProjectTaskReminders(project) {
+  const activeTasks = await getAll(db.collection('tasks').where({
+    projectId: project._id,
+    deletedAt: _.eq(null),
+    status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
+  }));
+  const results = await Promise.all(activeTasks.map(task => (
+    safelySyncTaskReminder(task, project)
+  )));
+  const warning = results.find(result => result && result.warning);
+  return {
+    syncedTaskCount: activeTasks.length,
+    warning: warning ? warning.warning : ''
+  };
 }
 
 function cleanProjectInput(payload) {
@@ -61,6 +94,16 @@ async function getOwnedProject(projectId, openid) {
 async function getProjectById(projectId) {
   const res = await db.collection('projects').where({ _id: projectId }).limit(1).get();
   return res.data && res.data[0] ? res.data[0] : null;
+}
+
+function progressSnapshot(project) {
+  const current = withProjectCompletionState(project);
+  return {
+    taskCount: current.taskCountCache,
+    completedTaskCount: current.completedTaskCountCache,
+    progress: current.progressCache,
+    allBranchesCompleted: current.allBranchesCompleted
+  };
 }
 
 async function create(payload, context) {
@@ -98,8 +141,21 @@ async function list(payload, context) {
   const page = Math.max(1, Number(payload.page) || 1);
   const pageSize = Math.min(100, Math.max(1, Number(payload.pageSize) || 20));
   const skip = (page - 1) * pageSize;
-  const res = await db.collection('projects').where(filter).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
-  return success({ projects: res.data.map(withProjectCompletionState) });
+  const query = db.collection('projects').where(filter).orderBy('updatedAt', 'desc');
+  let projects;
+  if (payload.excludeArchived === true) {
+    const rows = await getAll(query);
+    projects = rows
+      .filter(project => project.status !== PROJECT_STATUS.ARCHIVED && project.status !== PROJECT_STATUS.CANCELLED)
+      .slice(skip, skip + pageSize);
+  } else {
+    const res = await query.skip(skip).limit(pageSize).get();
+    projects = res.data;
+  }
+  const decorated = payload.includeTaskStats === true
+    ? await loadProjectProgressStats(db, openid, projects)
+    : projects.map(withProjectCompletionState);
+  return success({ projects: decorated });
 }
 
 async function listDeleted(payload, context) {
@@ -253,81 +309,95 @@ async function complete(payload, context) {
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
-  if (project.status === PROJECT_STATUS.COMPLETED) return fail('PROJECT_ALREADY_COMPLETED', '事件已结束');
+  if (isEndedArchivedProject(project)) {
+    return success({
+      progress: progressSnapshot(project),
+      alreadyCompleted: true
+    }, '备忘录已结束并归档');
+  }
+  if (project.status === PROJECT_STATUS.COMPLETED) return fail('PROJECT_ALREADY_COMPLETED', '备忘录已结束');
   if (project.status === PROJECT_STATUS.ARCHIVED) return fail('INVALID_PARAMS', '已归档事件不能直接结束');
   if (project.status === PROJECT_STATUS.CANCELLED) return fail('INVALID_PARAMS', '已取消事件不能结束');
   if (project.status !== PROJECT_STATUS.ACTIVE) return fail('INVALID_PARAMS', '只有进行中的事件才能结束');
 
-  const incompleteTasks = await getAll(db.collection('tasks').where({
+  const closureTasks = await getAll(db.collection('tasks').where({
     projectId: project._id, deletedAt: _.eq(null),
-    status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING])
+    status: _.in([TASK_STATUS.TODO, TASK_STATUS.DOING, TASK_STATUS.CLOSED_BY_PARENT])
   }));
-
-  const hasIncomplete = incompleteTasks.length > 0;
+  const incompleteTasks = closureTasks.filter(task => task.status !== TASK_STATUS.CLOSED_BY_PARENT);
+  const previouslyClosedTasks = closureTasks.filter(task => task.status === TASK_STATUS.CLOSED_BY_PARENT);
+  const hasIncomplete = closureTasks.length > 0;
   const confirmEarly = payload.confirmEarly === true;
 
-  if (hasIncomplete && !confirmEarly) {
+  if (hasIncomplete && !confirmEarly && previouslyClosedTasks.length === 0) {
     return fail('HAS_INCOMPLETE_TASKS', '还有 ' + incompleteTasks.length + ' 个未完成任务，请确认是否提前结束');
   }
 
   const now = db.serverDate();
-
-  await db.collection('projects').doc(project._id).update({
-    data: {
-      status: PROJECT_STATUS.COMPLETED,
-      completedAt: now,
-      completedBy: openid,
-      completedEarly: hasIncomplete,
-      updatedAt: now
-    }
-  });
-
-  if (hasIncomplete) {
-    for (const task of incompleteTasks) {
-      try {
-        await db.collection('tasks').doc(task._id).update({
-          data: {
-            status: TASK_STATUS.CLOSED_BY_PARENT,
-            statusBeforeParentClose: task.status,
-            closedAt: now,
-            closedBy: openid,
-            updatedAt: db.serverDate()
-          }
-        });
-      } catch (e) {
-        console.error('[project.complete] close task failed:', task._id, e.message);
+  const closedTasks = [];
+  for (const task of incompleteTasks) {
+    const changed = await db.collection('tasks').where({
+      _id: task._id,
+      projectId: project._id,
+      status: task.status,
+      deletedAt: _.eq(null)
+    }).update({
+      data: {
+        status: TASK_STATUS.CLOSED_BY_PARENT,
+        statusBeforeParentClose: task.status,
+        closedAt: now,
+        closedBy: openid,
+        updatedAt: db.serverDate()
       }
-      await safelyCancelTaskReminder(task);
-      try {
-        await writeActivityLog({
-          projectId: project._id, taskId: task._id,
-          operatorId: openid, action: 'task.closed_by_parent',
-          targetType: 'task', targetId: task._id,
-          targetTitleSnapshot: task.title,
-          before: { status: task.status },
-          after: { status: TASK_STATUS.CLOSED_BY_PARENT },
-          visibleTo: [openid]
-        });
-      } catch (logErr) {
-        console.warn('[project.complete] log task closed failed:', logErr.message);
-      }
-    }
+    });
+    if (changed.stats && changed.stats.updated) closedTasks.push(task);
   }
-
+  const reminderResults = await Promise.all(
+    closedTasks.concat(previouslyClosedTasks).map(task => safelyCancelTaskReminder(task))
+  );
+  const reminderWarning = reminderResults.find(result => result && result.warning);
   const progress = await recalculateProjectProgress(project._id);
   const action = hasIncomplete ? 'project.completed_early' : 'project.completed';
+  const completed = await db.collection('projects').where({
+    _id: project._id,
+    ownerId: openid,
+    status: PROJECT_STATUS.ACTIVE,
+    deletedAt: _.eq(null)
+  }).update({
+    data: buildCompletionArchiveState(now, openid, hasIncomplete)
+  });
+
+  if (!completed.stats || !completed.stats.updated) {
+    const latest = await getOwnedProject(project._id, openid);
+    if (isEndedArchivedProject(latest)) {
+      return success({ progress, alreadyCompleted: true }, '备忘录已结束并归档');
+    }
+    return fail('VERSION_CONFLICT', '备忘录状态已变化，请刷新后重试');
+  }
 
   await writeActivityLog({
     projectId: project._id, operatorId: openid, action,
     targetType: 'project', targetId: project._id,
     targetTitleSnapshot: project.title,
     before: { status: project.status, completedEarly: false },
-    after: { status: PROJECT_STATUS.COMPLETED, completedEarly: hasIncomplete },
-    metadata: { incompleteCount: hasIncomplete ? incompleteTasks.length : 0 },
+    after: {
+      status: PROJECT_STATUS.ARCHIVED,
+      completedEarly: hasIncomplete,
+      archivedAt: 'serverDate'
+    },
+    metadata: {
+      incompleteCount: hasIncomplete ? incompleteTasks.length : 0,
+      resumedCloseCount: previouslyClosedTasks.length,
+      autoArchived: true
+    },
     visibleTo: [openid]
   }).catch(function(err) { console.warn('[project.complete] project log failed:', err.message); });
 
-  return success({ progress }, hasIncomplete ? '事件已提前结束' : '事件已结束');
+  return success({
+    progress,
+    autoArchived: true,
+    reminderWarning: reminderWarning ? reminderWarning.warning : ''
+  }, '备忘录已结束并归档');
 }
 
 async function reopen(payload, context) {
@@ -335,69 +405,88 @@ async function reopen(payload, context) {
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt || !permission.canManageProject(openid, project)) return fail('NOT_FOUND', '事件不存在或无权操作');
-  if (project.status === PROJECT_STATUS.ARCHIVED) return fail('INVALID_PARAMS', '已归档事件不能重新打开')
+  if (project.status === PROJECT_STATUS.ACTIVE && !project.completedAt) {
+    const reminderResult = await syncActiveProjectTaskReminders(project);
+    return success({
+      progress: progressSnapshot(project),
+      alreadyReopened: true,
+      reminderWarning: reminderResult.warning
+    }, '备忘录已重新打开');
+  }
+  if (project.status === PROJECT_STATUS.ARCHIVED && !project.completedAt) return fail('INVALID_PARAMS', '普通归档备忘录请使用恢复操作');
   if (project.status === PROJECT_STATUS.CANCELLED) return fail('INVALID_PARAMS', '已取消事件不能重新打开')
-  if (project.status !== PROJECT_STATUS.COMPLETED) return fail('INVALID_PARAMS', '只有已结束的事件才能重新打开');
-
-  const updateData = {
-    status: PROJECT_STATUS.ACTIVE,
-    completedAt: null, completedBy: null,
-    completedEarly: false,
-    updatedAt: db.serverDate()
-  };
-  await db.collection('projects').doc(project._id).update({ data: updateData });
+  if (!isReopenableEndedProject(project)) {
+    return fail('INVALID_PARAMS', '只有已结束的备忘录才能重新打开');
+  }
 
   const closedTasks = await getAll(db.collection('tasks').where({
     projectId: project._id, deletedAt: _.eq(null),
     status: TASK_STATUS.CLOSED_BY_PARENT
   }));
 
+  const restoredTasks = [];
   for (const task of closedTasks) {
-    const previousStatus = task.statusBeforeParentClose || TASK_STATUS.TODO;
-    let restored = false;
-    try {
-      await db.collection('tasks').doc(task._id).update({
-        data: {
-          status: previousStatus,
-          statusBeforeParentClose: null,
-          closedAt: null, closedBy: null,
-          updatedAt: db.serverDate()
-        }
-      });
-      restored = true;
-    } catch (e) {
-      console.warn('[project.reopen] restore task failed:', task._id, e.message);
-    }
-    if (restored) await safelySyncTaskReminder({ ...task, status: previousStatus, statusBeforeParentClose: null }, { ...project, status: PROJECT_STATUS.ACTIVE });
-    try {
-      await writeActivityLog({
-        projectId: project._id, taskId: task._id,
-        operatorId: openid, action: 'task.reopened',
-        targetType: 'task', targetId: task._id,
-        targetTitleSnapshot: task.title,
-        before: { status: TASK_STATUS.CLOSED_BY_PARENT },
-        after: { status: previousStatus },
-        visibleTo: [openid]
-      });
-    } catch (logErr) {
-      console.warn('[project.reopen] log task reopen failed:', logErr.message);
+    const previousStatus = statusBeforeParentClose(task);
+    const changed = await db.collection('tasks').where({
+      _id: task._id,
+      projectId: project._id,
+      status: TASK_STATUS.CLOSED_BY_PARENT,
+      deletedAt: _.eq(null)
+    }).update({
+      data: {
+        status: previousStatus,
+        statusBeforeParentClose: null,
+        closedAt: null, closedBy: null,
+        updatedAt: db.serverDate()
+      }
+    });
+    if (changed.stats && changed.stats.updated) {
+      restoredTasks.push({ ...task, status: previousStatus, statusBeforeParentClose: null });
     }
   }
 
-  const progress = await recalculateProjectProgress(project._id);
-
-  await writeActivityLog({
-    projectId: project._id, operatorId: openid,
-    action: 'project.reopened',
-    targetType: 'project', targetId: project._id,
-    targetTitleSnapshot: project.title,
-    before: { status: project.status },
-    after: { status: PROJECT_STATUS.ACTIVE, completedAt: null },
-    metadata: { restoredTaskCount: closedTasks.length },
-    visibleTo: [openid]
+  const reopened = await db.collection('projects').where({
+    _id: project._id,
+    ownerId: openid,
+    status: project.status,
+    deletedAt: _.eq(null)
+  }).update({
+    data: buildReopenedProjectState(db.serverDate())
   });
 
-  return success({ progress }, '事件已重新打开');
+  if (!reopened.stats || !reopened.stats.updated) {
+    const latest = await getOwnedProject(project._id, openid);
+    if (!latest || latest.status !== PROJECT_STATUS.ACTIVE) {
+      return fail('VERSION_CONFLICT', '备忘录状态已变化，请刷新后重试');
+    }
+  }
+
+  const reminderResult = await syncActiveProjectTaskReminders({
+    ...project,
+    status: PROJECT_STATUS.ACTIVE,
+    completedAt: null,
+    archivedAt: null
+  });
+  const progress = await recalculateProjectProgress(project._id);
+
+  if (reopened.stats && reopened.stats.updated) {
+    await writeActivityLog({
+      projectId: project._id, operatorId: openid,
+      action: 'project.reopened',
+      targetType: 'project', targetId: project._id,
+      targetTitleSnapshot: project.title,
+      before: { status: project.status, archivedAt: project.archivedAt || null },
+      after: { status: PROJECT_STATUS.ACTIVE, completedAt: null, archivedAt: null },
+      metadata: { restoredTaskCount: restoredTasks.length },
+      visibleTo: [openid]
+    });
+  }
+
+  return success({
+    progress,
+    alreadyReopened: !(reopened.stats && reopened.stats.updated),
+    reminderWarning: reminderResult.warning
+  }, '备忘录已重新打开');
 }
 
 async function recalculateProgressAction(payload, context) {

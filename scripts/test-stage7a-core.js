@@ -126,13 +126,13 @@ async function run() {
     'todo-core-old',
     'closed-core',
     'todo-core-new',
+    'approved-important',
     'doing-important',
-    'todo-optional'
   ]);
-  assert.equal(preview.tasks[5]._id, 'completed-core');
+  assert.equal(preview.tasks[5]._id, 'todo-optional');
   assert.equal(preview.totalTaskCount, 7);
-  assert.equal(preview.completedTaskCount, 2);
-  assert.equal(preview.unfinishedTaskCount, 5);
+  assert.equal(preview.completedTaskCount, 1);
+  assert.equal(preview.unfinishedTaskCount, 6);
   assert.equal(preview.hasMore, true);
 
   assert.equal(allBranchesCompleted(0, 0), false);
