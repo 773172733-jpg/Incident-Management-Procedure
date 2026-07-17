@@ -9,7 +9,7 @@ Page({
     filter: 'all',
     filterOptions: [
       { key: 'all', label: '全部' },
-      { key: 'project', label: '大事件' },
+      { key: 'project', label: '备忘录' },
       { key: 'task', label: '分支任务' },
       { key: 'group', label: '分组' }
     ],
@@ -71,10 +71,10 @@ Page({
   retry() { if (this.data.tab === 'pending') this.loadPending(); else this.loadLogs(true); },
   openTask(e) {
     var item = e.detail.item;
-    if (!item || !item.projectId) return wx.showToast({ title: '所属大事件已不存在', icon: 'none' });
+    if (!item || !item.projectId) return wx.showToast({ title: '所属备忘录已不存在', icon: 'none' });
     wx.navigateTo({
       url: '/pages/project-detail/project-detail?id=' + encodeURIComponent(item.projectId) + '&taskId=' + encodeURIComponent(item._id),
-      fail: function() { wx.showToast({ title: '无法打开所属大事件', icon: 'none' }); }
+      fail: function() { wx.showToast({ title: '无法打开所属备忘录', icon: 'none' }); }
     });
   },
   async toggleTask(e) {
@@ -99,9 +99,9 @@ Page({
       if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
       var reminders = this.data.unreadReminders.filter(function(reminder) { return reminder._id !== item._id; });
       this.setData({ unreadReminders: reminders, unreadCount: reminders.length });
-      if (!item.projectId) return wx.showToast({ title: '所属大事件已不存在', icon: 'none' });
+      if (!item.projectId) return wx.showToast({ title: '所属备忘录已不存在', icon: 'none' });
       var projectRes = await projectService.get(item.projectId);
-      if (!projectRes.success) return wx.showToast({ title: '所属大事件已不存在', icon: 'none' });
+      if (!projectRes.success) return wx.showToast({ title: '所属备忘录已不存在', icon: 'none' });
       wx.navigateTo({ url: '/pages/project-detail/project-detail?id=' + encodeURIComponent(item.projectId) + '&taskId=' + encodeURIComponent(item.taskId) });
     } finally { this.setData({ markingReminders: false }); }
   },
@@ -165,7 +165,7 @@ function decorateReminder(item) {
   return {
     ...item,
     taskTitle: item.taskTitleSnapshot || '未命名分支任务',
-    projectTitle: item.projectTitleSnapshot || '原大事件',
+    projectTitle: item.projectTitleSnapshot || '原备忘录',
     scheduledText: validTimeText(scheduledAt, '计划'),
     triggeredText: validTimeText(triggeredAt, '触发'),
     overdue: !Number.isNaN(dueAt.getTime()) && dueAt.getTime() < Date.now()

@@ -26,8 +26,8 @@ Page({
   archive() { wx.navigateTo({ url: '/pages/archive/archive' }); },
   recycle() { wx.navigateTo({ url: '/pages/recycle-bin/recycle-bin' }); },
   notifications() { wx.navigateTo({ url: '/pages/notification-settings/notification-settings' }); },
-  privacy() { wx.showModal({ title: '隐私说明', content: '事有进度使用云端身份隔离并保存你的个人数据，不会在页面展示敏感身份标识。', showCancel: false }); },
-  about() { wx.showModal({ title: '关于事有进度', content: '事有进度 v1.0.0\n把大事件拆成可以一步步完成的分支任务。', showCancel: false }); },
+  privacy() { wx.showModal({ title: '隐私说明', content: '有进度使用云端身份隔离并保存你的个人数据，不会在页面展示敏感身份标识。', showCancel: false }); },
+  about() { wx.showModal({ title: '关于有进度', content: '有进度 V1.1 测试版（1.1.0-beta.1）\n把备忘录拆成可以一步步完成的分支任务。', showCancel: false }); },
   async chooseReminder() {
     if (this.data.savingSetting) return;
     const values = [{ mode: 'none', minutes: 30 }, { mode: 'at_due', minutes: 30 }, { mode: 'offset', minutes: 10 }, { mode: 'offset', minutes: 30 }, { mode: 'offset', minutes: 60 }, { mode: 'offset', minutes: 1440 }];
@@ -56,5 +56,5 @@ Page({
 });
 
 function reminderLabel(mode, minutes) { if (mode === 'none') return '不默认提醒'; if (mode === 'at_due') return '截止时'; const map = { 10: '提前10分钟', 30: '提前30分钟', 60: '提前1小时', 1440: '提前1天' }; return map[minutes] || '提前30分钟'; }
-function joinedLabel(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '事有进度' : `${date.getFullYear()}年${date.getMonth() + 1}月加入`; }
+function joinedLabel(value) { const date = new Date(value); return Number.isNaN(date.getTime()) ? '有进度' : `${date.getFullYear()}年${date.getMonth() + 1}月加入`; }
 function actionSheet(itemList) { return new Promise(resolve => wx.showActionSheet({ itemList, success: result => resolve(result.tapIndex), fail: () => resolve(-1) })); }

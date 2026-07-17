@@ -62,7 +62,7 @@ function statusLabel(status) {
     cancelled: '已取消',
     todo: '未完成',
     doing: '进行中',
-    closed_by_parent: '随事件结束'
+    closed_by_parent: '随备忘录结束'
   };
   return map[status] || status;
 }

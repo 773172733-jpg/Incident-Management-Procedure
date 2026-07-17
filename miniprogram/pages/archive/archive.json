@@ -1,1 +1,1 @@
-{"navigationBarTitleText":"已归档事件","usingComponents":{"empty-state":"/components/empty-state/empty-state","loading-skeleton":"/components/loading-skeleton/loading-skeleton","list-project-card":"/components/list-project-card/list-project-card"}}
+{"navigationBarTitleText":"已归档备忘录","usingComponents":{"empty-state":"/components/empty-state/empty-state","loading-skeleton":"/components/loading-skeleton/loading-skeleton","list-project-card":"/components/list-project-card/list-project-card"}}
