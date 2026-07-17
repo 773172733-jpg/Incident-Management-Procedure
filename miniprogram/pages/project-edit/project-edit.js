@@ -44,7 +44,15 @@ Page({
       : timeMode === 'ongoing' ? { endAt: '' } : {};
     this.setData({ timeMode, ...dates });
   },
-  chooseIcon(e) { var v=e.currentTarget.dataset.value; this.setData({iconType:'emoji',iconValue:v}); },
+  // 再次点击已选图标可取消选择，保存为现有空值格式（iconType:'text' + iconValue:''）
+  chooseIcon(e) {
+    const v = e.currentTarget.dataset.value;
+    if (this.data.iconValue === v) {
+      this.setData({ iconType: 'text', iconValue: '' });
+      return;
+    }
+    this.setData({ iconType: 'emoji', iconValue: v });
+  },
   chooseThemeColor(e) { this.setData({ themeColor: e.currentTarget.dataset.value }); },
   retry() { this.onLoad({ id: this.data.id }); },
   async save() {

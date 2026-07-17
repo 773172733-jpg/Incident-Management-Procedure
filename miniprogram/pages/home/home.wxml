@@ -1,10 +1,10 @@
 <view class="page home-page">
   <view class="page-header home-header">
-    <view class="page-header__title">我的备忘录</view>
+    <view class="page-header__title">有进度</view>
     <view class="page-header__subtitle">专注目标，让每件事都有进度</view>
   </view>
   <view class="stats">
-    <view class="stat stat--create" bindtap="create"><view class="stat-icon">＋</view><text class="stat-label">新建备忘</text></view>
+    <view class="stat stat--create" hover-class="stat--create-pressed" hover-start-time="20" hover-stay-time="70" bindtap="create"><view class="stat-icon">＋</view><text class="stat-label">新建备忘</text></view>
     <view class="stat"><text class="stat-name">进行中</text><text class="stat-number stat-number--info">{{stats.active}}</text><view class="stat-mark stat-mark--info"></view></view>
     <view class="stat"><text class="stat-name">已结束</text><text class="stat-number">{{stats.completed}}</text><view class="stat-mark stat-mark--success"></view></view>
   </view>
@@ -14,36 +14,35 @@
   <section-title title="{{filter==='completed'?'已结束的备忘录':'备忘录列表'}}"></section-title>
   <loading-skeleton wx:if="{{loading}}" rows="3"></loading-skeleton>
   <empty-state wx:elif="{{error}}" type="error" title="加载失败" description="{{error}}" action-text="重新加载" bind:action="retry"></empty-state>
-  <empty-state wx:elif="{{!visibleItems.length}}" title="{{items.length?'这个筛选下暂无大事件':'还没有大事件'}}" description="{{items.length?'换一个筛选条件看看':'创建一个大事件，把要做的事慢慢推进。'}}" action-text="创建第一个大事件" bind:action="create"></empty-state>
+  <empty-state wx:elif="{{!visibleItems.length}}" title="{{items.length?'这个筛选下暂无备忘录':'还没有备忘录'}}" description="{{items.length?'换一个筛选条件看看':'创建一个备忘录，把要做的事慢慢推进。'}}" action-text="创建第一个备忘录" bind:action="create"></empty-state>
   <view wx:else class="project-list">
-    <view wx:for="{{visibleItems}}" wx:key="_id" class="project-card" data-id="{{item._id}}" bindtap="detail">
+    <view wx:for="{{visibleItems}}" wx:key="_id" class="project-card {{item.allBranchesCompleted?'project-card--done':''}}" data-id="{{item._id}}" bindtap="detail">
       <view class="project-head">
         <view class="project-icon" style="color:{{item.themeColor||'#FF6B35'}};background:{{item.themeColor||'#FF6B35'}}1A">{{item.iconText}}</view>
         <view class="project-main">
           <view class="project-title-row"><text class="project-title">{{item.title}}</text><text class="status status--{{item.status}}">{{item.statusText}}</text></view>
           <text class="project-time">{{item.timeText}}</text>
         </view>
+        <view class="expand-btn" hover-class="expand-btn--hover" data-id="{{item._id}}" catchtap="togglePreview"><view class="expand-arrow {{expandedId===item._id?'expand-arrow--open':''}}"></view></view>
       </view>
-      <view class="progress-row"><view class="progress-track"><view class="progress-fill" style="width:{{item.progressValue}}%;background:{{item.themeColor||'#FF6B35'}}"></view></view><text class="progress-value">{{item.progressValue}}%</text></view>
-      <view class="project-foot"><text>已完成 {{item.countText}}</text><text>{{item.allBranchesCompleted?'分支已全部完成':item.recentText}}</text></view>
-      <view class="preview-toggle" data-id="{{item._id}}" catchtap="togglePreview">
-        <text>{{item.previewExpanded?'收起分支':'查看分支'}}</text>
-        <text class="preview-toggle__arrow">{{item.previewExpanded?'⌃':'⌄'}}</text>
-      </view>
-      <view wx:if="{{item.previewExpanded}}" class="task-preview">
-        <text wx:if="{{item.previewLoading}}" class="preview-state">正在加载分支任务...</text>
-        <view wx:elif="{{item.previewError}}" class="preview-state preview-state--error" data-id="{{item._id}}" catchtap="retryPreview">{{item.previewError}}，点击重试</view>
-        <block wx:else>
-          <text wx:if="{{!item.previewTasks.length}}" class="preview-state">还没有分支任务</text>
-          <view wx:for="{{item.previewTasks}}" wx:for-item="task" wx:key="_id" class="preview-task {{task.isCompleted?'preview-task--done':''}}" data-project-id="{{item._id}}" data-task-id="{{task._id}}" catchtap="openPreviewTask">
-            <view class="preview-task__main">
-              <text class="preview-task__title">{{task.title}}</text>
-              <text class="preview-task__meta">{{task.priorityText}} · {{task.timeText}}</text>
+      <view class="progress-row"><view class="progress-track"><view class="progress-fill {{item.progressValue>0?'progress-fill--min':''}}" style="width:{{item.progressValue}}%;{{item.progressFillStyle}}"></view></view><text class="progress-value">{{item.progressValue}}%</text></view>
+      <view class="project-foot"><text>已完成 {{item.countText}}</text><text>{{item.allBranchesCompleted?'分支任务已全部完成':item.recentText}}</text></view>
+      <view class="task-preview {{expandedId===item._id?'task-preview--open':''}}">
+        <view class="task-preview__inner">
+          <text wx:if="{{item.previewLoading}}" class="preview-state">正在加载分支任务...</text>
+          <view wx:elif="{{item.previewError}}" class="preview-state preview-state--error" data-id="{{item._id}}" catchtap="retryPreview">加载失败，点击重试</view>
+          <block wx:else>
+            <text wx:if="{{item.previewLoaded&&!item.previewTasks.length}}" class="preview-state">还没有分支任务</text>
+            <view wx:for="{{item.previewTasks}}" wx:for-item="task" wx:key="_id" class="preview-task {{task.isCompleted?'preview-task--done':''}}" data-project-id="{{item._id}}" data-task-id="{{task._id}}" catchtap="openPreviewTask">
+              <view class="preview-task__main">
+                <text class="preview-task__title">{{task.title}}</text>
+                <text class="preview-task__meta">{{task.priorityText}} · {{task.timeText}}</text>
+              </view>
+              <text class="preview-task__status">{{task.statusText}}</text>
             </view>
-            <text class="preview-task__status">{{task.statusText}}</text>
-          </view>
-          <text wx:if="{{item.previewSummary.hasMore}}" class="preview-more">还有{{item.previewSummary.totalTaskCount-6}}条，进入详情查看全部</text>
-        </block>
+            <view wx:if="{{item.previewSummary&&item.previewSummary.hasMore}}" class="preview-more" data-id="{{item._id}}" catchtap="detail">查看全部分支任务</view>
+          </block>
+        </view>
       </view>
     </view>
   </view>

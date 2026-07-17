@@ -18,7 +18,7 @@ Page({
       stateText: statusLabel(item.status), extraText: `原进度 ${Math.max(0, Math.min(100, Number(item.progressCache) || 0))}%`
     }));
     const tasks = (taskRes.data.tasks || []).map(item => ({
-      ...item, deletedText: formatDateTime(item.deletedAt), priorityText: priorityLabel(item.priority), projectTitle: item.projectTitle || '原大事件不存在'
+      ...item, deletedText: formatDateTime(item.deletedAt), priorityText: priorityLabel(item.priority), projectTitle: item.projectTitle || '原备忘录不存在'
     }));
     this.setData({ projects, tasks, loading: false, error: '' });
     this.applyTab();
@@ -40,11 +40,11 @@ Page({
     this.setData({ operatingId: '' });
     if (!res.success) return wx.showToast({ title: res.message, icon: 'none' });
     this.setData({ projects: this.data.projects.filter(project => project._id !== item._id) }, () => this.applyTab());
-    wx.showToast({ title: res.message, icon: 'success' });
+    wx.showToast({ title: '备忘录已恢复', icon: 'success' });
   },
   async restoreTask(e) {
     const item = e.currentTarget.dataset.item;
-    if (item.parentProjectDeleted) return wx.showToast({ title: '请先恢复所属大事件', icon: 'none' });
+    if (item.parentProjectDeleted) return wx.showToast({ title: '请先恢复所属备忘录', icon: 'none' });
     if (this.data.operatingId) return;
     this.setData({ operatingId: item._id });
     const res = await taskService.restore(item._id);
@@ -56,42 +56,44 @@ Page({
   async purgeProject(e) {
     const item = e.detail.item;
     if (this.data.operatingId || this.data.clearing) return;
-    const confirmed = await confirmPermanentDelete(
-      '永久删除大事件',
-      `将永久删除「${item.title}」及其全部分支任务、分组、提醒和动态记录。删除后无法恢复，确定继续吗？`
+    const confirmed = await confirmDanger(
+      '永久删除',
+      '永久删除后，该备忘录及其分支任务将无法恢复，确定继续吗？',
+      '永久删除'
     );
     if (!confirmed) return;
     this.setData({ operatingId: item._id });
     const res = await projectService.purge(item._id);
     this.setData({ operatingId: '' });
-    if (!res.success) return wx.showToast({ title: res.message, icon: 'none', duration: 3000 });
+    if (!res.success) return wx.showToast({ title: '永久删除失败，请稍后重试', icon: 'none', duration: 3000 });
     this.setData({
       projects: this.data.projects.filter(project => project._id !== item._id),
       tasks: this.data.tasks.filter(task => task.projectId !== item._id)
     }, () => this.applyTab());
-    wx.showToast({ title: res.message, icon: 'success' });
+    wx.showToast({ title: '已永久删除', icon: 'success' });
   },
   async clearTrash() {
     if (this.data.operatingId || this.data.clearing || (!this.data.projects.length && !this.data.tasks.length)) return;
-    const confirmed = await confirmPermanentDelete(
+    const confirmed = await confirmDanger(
       '清空回收站',
-      `将永久删除回收站中的${this.data.projects.length}个大事件和${this.data.tasks.length}个分支任务，所有关联数据都无法恢复。确定清空吗？`
+      '清空后所有内容将无法恢复，确定清空回收站吗？',
+      '清空'
     );
     if (!confirmed) return;
     this.setData({ clearing: true });
     const res = await projectService.clearTrash();
     this.setData({ clearing: false });
-    if (!res.success) return wx.showToast({ title: res.message, icon: 'none', duration: 3000 });
+    if (!res.success) return wx.showToast({ title: '清空失败，请稍后重试', icon: 'none', duration: 3000 });
     this.setData({ projects: [], tasks: [] }, () => this.applyTab());
-    wx.showToast({ title: res.message, icon: 'success' });
+    wx.showToast({ title: '回收站已清空', icon: 'success' });
   }
 });
 
-function confirmPermanentDelete(title, content) {
+function confirmDanger(title, content, confirmText) {
   return new Promise(resolve => wx.showModal({
     title,
     content,
-    confirmText: '永久删除',
+    confirmText,
     confirmColor: '#F04A4A',
     success: result => resolve(!!result.confirm),
     fail: () => resolve(false)

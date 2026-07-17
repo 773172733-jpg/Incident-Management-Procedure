@@ -2,6 +2,15 @@ const projects = require("../../services/project-service");
 const tasks = require("../../services/task-service");
 const { projectTimeText, progressText, statusLabel, priorityLabel, taskTimeText } = require("../../utils/format");
 
+// 新建按钮按压回弹接近结束时再跳转（单个定时器，不叠加）
+const CREATE_NAVIGATE_DELAY = 170;
+
+function buildProgressFillStyle(progressValue, themeColor) {
+  const theme = themeColor || "#FF6B35";
+  if (progressValue >= 100) return "background:#22B573";
+  return "background:linear-gradient(90deg," + theme + "66," + theme + ")";
+}
+
 Page({
   data: {
     loading: true,
@@ -9,6 +18,7 @@ Page({
     filter: "all",
     items: [],
     visibleItems: [],
+    expandedId: "",
     stats: { active: 0, completed: 0 },
     filters: [
       { key: "all", label: "全部" },
@@ -20,6 +30,7 @@ Page({
 
   onShow() {
     if (this.getTabBar()) this.getTabBar().setData({ selected: 0 });
+    this._createLocked = false;
     this.load();
   },
 
@@ -39,6 +50,7 @@ Page({
     const items = rawItems.map(function(item) {
       const completed = Number(item.completedTaskCountCache) || 0;
       const total = Number(item.taskCountCache) || 0;
+      const progressValue = Number(item.progressCache) || 0;
       return {
         ...item,
         _id: item._id,
@@ -54,14 +66,14 @@ Page({
         progressText: progressText(completed, total),
         countText: completed + "/" + total,
         iconText: item.iconValue || (item.title || '事').slice(0, 1),
-        progressValue: Number(item.progressCache) || 0,
+        progressValue,
+        progressFillStyle: buildProgressFillStyle(progressValue, item.themeColor),
         statusText: statusLabel(item.status),
         allBranchesCompleted: item.allBranchesCompleted === true
           || (total > 0 && completed === total),
-        previewExpanded: false,
         previewLoaded: false,
         previewLoading: false,
-        previewError: "",
+        previewError: false,
         previewTasks: [],
         previewSummary: null,
         recentText: item.status === 'completed'
@@ -75,6 +87,18 @@ Page({
     };
     this.setData({ loading: false, items, stats });
     this.applyFilter();
+    this.refreshExpandedPreview();
+  },
+
+  // 返回首页后保持展开状态，并重新拉取该备忘录的分支预览
+  refreshExpandedPreview() {
+    const expandedId = this.data.expandedId;
+    if (!expandedId) return;
+    if (!this.data.items.some(item => item._id === expandedId)) {
+      this.setData({ expandedId: "" });
+      return;
+    }
+    this.loadPreview(expandedId);
   },
 
   chooseFilter(e) {
@@ -93,7 +117,14 @@ Page({
   },
 
   create() {
-    wx.navigateTo({ url: "/pages/project-edit/project-edit" });
+    if (this._createLocked) return;
+    this._createLocked = true;
+    setTimeout(() => {
+      wx.navigateTo({
+        url: "/pages/project-edit/project-edit",
+        fail: () => { this._createLocked = false; }
+      });
+    }, CREATE_NAVIGATE_DELAY);
   },
 
   detail(e) {
@@ -101,31 +132,26 @@ Page({
     wx.navigateTo({ url: "/pages/project-detail/project-detail?id=" + id });
   },
 
-  async togglePreview(e) {
+  // 同一时间最多展开一个备忘录
+  togglePreview(e) {
     const id = e.currentTarget.dataset.id;
+    if (this.data.expandedId === id) {
+      this.setData({ expandedId: "" });
+      return;
+    }
+    this.setData({ expandedId: id });
+    const item = this.data.items.find(project => project._id === id);
+    if (item && !item.previewLoaded && !item.previewLoading) this.loadPreview(id);
+  },
+
+  async loadPreview(id) {
     const item = this.data.items.find(project => project._id === id);
     if (!item || item.previewLoading) return;
 
-    if (item.previewExpanded) {
-      this.updateProjectItem(id, { previewExpanded: false });
-      return;
-    }
-    if (item.previewLoaded) {
-      this.updateProjectItem(id, { previewExpanded: true });
-      return;
-    }
-
-    this.updateProjectItem(id, {
-      previewExpanded: true,
-      previewLoading: true,
-      previewError: ""
-    });
+    this.updateProjectItem(id, { previewLoading: true, previewError: false });
     const res = await tasks.listByProject(id, { preview: true, limit: 6 });
     if (!res || !res.success) {
-      this.updateProjectItem(id, {
-        previewLoading: false,
-        previewError: (res && res.message) || "分支任务加载失败"
-      });
+      this.updateProjectItem(id, { previewLoading: false, previewError: true });
       return;
     }
 
@@ -140,7 +166,7 @@ Page({
     this.updateProjectItem(id, {
       previewLoading: false,
       previewLoaded: true,
-      previewError: "",
+      previewError: false,
       previewTasks,
       previewSummary: {
         totalTaskCount: Number(data.totalTaskCount) || 0,
@@ -165,8 +191,7 @@ Page({
 
   retryPreview(e) {
     const id = e.currentTarget.dataset.id;
-    this.updateProjectItem(id, { previewExpanded: false, previewError: "" });
-    return this.togglePreview(e);
+    return this.loadPreview(id);
   },
 
   updateProjectItem(id, patch) {
