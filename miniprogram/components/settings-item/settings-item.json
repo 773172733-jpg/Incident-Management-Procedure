@@ -1,1 +1,6 @@
-{"component":true}
+{
+  "component": true,
+  "usingComponents": {
+    "profile-menu-icon": "/components/profile-menu-icon/profile-menu-icon"
+  }
+}

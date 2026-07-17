@@ -1,0 +1,29 @@
+<view class="menu-icon menu-icon--{{type}}">
+  <block wx:if="{{type==='bell'}}">
+    <view class="bell"><view class="bell-clapper"></view></view>
+  </block>
+  <block wx:elif="{{type==='archive'}}">
+    <view class="archive-box"><view class="archive-lid"></view><view class="archive-handle"></view></view>
+  </block>
+  <block wx:elif="{{type==='trash'}}">
+    <view class="trash-can"><view class="trash-lid"></view><view class="trash-line trash-line--left"></view><view class="trash-line trash-line--right"></view></view>
+  </block>
+  <block wx:elif="{{type==='shield'}}">
+    <view class="shield"><view class="shield-check"></view></view>
+  </block>
+  <block wx:elif="{{type==='settings'}}">
+    <view class="gear"><view class="gear-center"></view></view>
+  </block>
+  <block wx:elif="{{type==='chart'}}">
+    <view class="chart"><view class="chart-bar chart-bar--short"></view><view class="chart-bar chart-bar--medium"></view><view class="chart-bar chart-bar--tall"></view></view>
+  </block>
+  <block wx:elif="{{type==='sink'}}">
+    <view class="sink-lines"><view></view><view></view><view></view></view><view class="sink-arrow"></view>
+  </block>
+  <block wx:elif="{{type==='clock'}}">
+    <view class="clock"><view class="clock-hand clock-hand--hour"></view><view class="clock-hand clock-hand--minute"></view></view>
+  </block>
+  <block wx:else>
+    <view class="info-circle"><view class="info-dot"></view><view class="info-line"></view></view>
+  </block>
+</view>
