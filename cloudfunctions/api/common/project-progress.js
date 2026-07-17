@@ -6,6 +6,7 @@
 const cloud = require('wx-server-sdk');
 const _ = cloud.database().command;
 const { getAll } = require('./query');
+const { allBranchesCompleted } = require('./project-state');
 
 let _db = null;
 function getDb() {
@@ -18,7 +19,8 @@ function getDb() {
 
 /**
  * 重新计算并更新项目进度缓存
- * 排除：已软删除、cancelled、closed_by_parent
+ * 排除：已软删除、cancelled
+ * closed_by_parent 保留在总数中，但不计为完成，避免提前结束后显示虚假 100%
  * 完成包括：completed、approved
  * @param {string} projectId - 项目 ID
  * @returns {Promise<{taskCount: number, completedTaskCount: number, progress: number}>}
@@ -45,7 +47,12 @@ async function recalculateProjectProgress(projectId) {
 
   await db.collection('projects').doc(projectId).update({ data: updateData });
 
-  return { taskCount: total, completedTaskCount: completed, progress };
+  return {
+    taskCount: total,
+    completedTaskCount: completed,
+    progress,
+    allBranchesCompleted: allBranchesCompleted(total, completed)
+  };
 }
 
 module.exports = { recalculateProjectProgress };

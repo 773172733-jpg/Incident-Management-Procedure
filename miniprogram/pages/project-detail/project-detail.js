@@ -269,7 +269,8 @@ Page({
       ...this.data.project,
       taskCountCache: progress.taskCount,
       completedTaskCountCache: progress.completedTaskCount,
-      progressCache: Math.max(0, Math.min(100, Number(progress.progress) || 0))
+      progressCache: Math.max(0, Math.min(100, Number(progress.progress) || 0)),
+      allBranchesCompleted: progress.allBranchesCompleted === true
     }});
   },
 

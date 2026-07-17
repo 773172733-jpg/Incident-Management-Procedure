@@ -134,6 +134,33 @@ const directCalls = walk(path.join(root, 'miniprogram'), '.js').filter(file => {
 if (directCalls.length) fail(`发现页面或模块直接调用云函数：${directCalls.map(file => path.relative(root, file)).join(', ')}`);
 else pass('没有散落的 wx.cloud.callFunction 调用');
 
+const serviceRoot = path.join(root, 'miniprogram', 'services');
+const serviceCalls = [];
+for (const file of walk(serviceRoot, '.js')) {
+  const source = fs.readFileSync(file, 'utf8');
+  for (const match of source.matchAll(/callApi\s*\(\s*['"]([^'"]+)['"]\s*,\s*['"]([^'"]+)['"]/g)) {
+    serviceCalls.push({ moduleName: match[1], action: match[2], file });
+  }
+}
+for (const call of serviceCalls) {
+  const moduleFile = path.join(apiRoot, 'modules', call.moduleName, 'index.js');
+  if (!fs.existsSync(moduleFile)) {
+    fail(`前端 action 模块不存在：${path.relative(root, call.file)} -> ${call.moduleName}.${call.action}`);
+    continue;
+  }
+  try {
+    const mod = require(moduleFile);
+    if (typeof mod[call.action] !== 'function') {
+      fail(`前端 action 未导出：${path.relative(root, call.file)} -> ${call.moduleName}.${call.action}`);
+    }
+  } catch (error) {
+    fail(`前端 action 模块无法加载：${call.moduleName}.${call.action}：${error.message}`);
+  }
+}
+if (!errors.some(message => message.startsWith('前端 action'))) {
+  pass(`前端 action 映射完整（${serviceCalls.length} 个调用）`);
+}
+
 console.log(checks.map(item => `PASS ${item}`).join('\n'));
 if (errors.length) {
   console.error(errors.map(item => `FAIL ${item}`).join('\n'));

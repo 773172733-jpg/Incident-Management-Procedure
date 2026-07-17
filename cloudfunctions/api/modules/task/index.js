@@ -12,6 +12,8 @@ const { recalculateProjectProgress } = require('../../common/project-progress');
 const { getEffectiveDueAt, normalizeTaskTimePayload } = require('../../common/task-time');
 const { getAll } = require('../../common/query');
 const { normalizeReminderConfig, calculateScheduledAt, syncTaskReminder, cancelTaskReminder } = require('../../common/reminder');
+const { buildTaskPreview } = require('../../common/task-preview');
+const { allBranchesCompleted } = require('../../common/project-state');
 
 async function ownedProject(openid, projectId) { const r = await db.collection('projects').doc(projectId).get().catch(() => ({ data: null })); return r.data && !r.data.deletedAt && permission.canEditProject(openid, r.data) ? r.data : null; }
 async function rawOwnedProject(openid, projectId) { const r = await db.collection('projects').doc(projectId).get().catch(() => ({ data: null })); return r.data && permission.canReadProject(openid, r.data) ? r.data : null; }
@@ -66,7 +68,33 @@ async function create(payload, context) {
   await writeActivityLog({ projectId: project._id, taskId: result._id, operatorId: openid, action: 'task.created', targetType: 'task', targetId: result._id, targetTitleSnapshot: doc.title, after: parsed.data, visibleTo: [openid] });
   return success({ task, progress, reminderWarning: reminderResult.warning || '' }, '任务已创建');
 }
-async function listByProject(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.projectId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const project = await ownedProject(openid, id.value); if (!project) return fail('PROJECT_NOT_FOUND', '事件不存在或无权访问'); const tasks = await getAll(db.collection('tasks').where({ projectId: project._id, deletedAt: null }).orderBy('sortOrder', 'asc')); return success({ tasks }); }
+async function listByProject(payload, context) {
+  const openid = auth.getUserId(context);
+  const id = validateObjectId(payload.projectId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  if (!id.valid) return fail('INVALID_PARAMS', id.message);
+
+  const project = await ownedProject(openid, id.value);
+  if (!project) return fail('PROJECT_NOT_FOUND', '事件不存在或无权访问');
+
+  const preview = payload.preview === true;
+  const rows = await getAll(db.collection('tasks').where({
+    projectId: project._id,
+    deletedAt: null
+  }).orderBy('sortOrder', 'asc'));
+  const tasks = rows.filter(task => task && task.ownerId === openid);
+
+  if (!preview) return success({ tasks });
+
+  const result = buildTaskPreview(tasks, payload.limit);
+  return success({
+    ...result,
+    allBranchesCompleted: allBranchesCompleted(
+      result.totalTaskCount,
+      result.completedTaskCount
+    )
+  });
+}
 async function listDeleted(payload, context) { const openid = auth.getUserId(context); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); const rows = await getAll(db.collection('tasks').where({ ownerId: openid, deletedAt: _.neq(null) }).orderBy('updatedAt', 'desc')); const tasks = rows.filter(item => item && item.deletedAt); const projectIds = [...new Set(tasks.map(item => item.projectId).filter(Boolean))]; const projects = await Promise.all(projectIds.map(id => rawOwnedProject(openid, id))); const map = {}; projects.filter(Boolean).forEach(item => { map[item._id] = item; }); return success({ tasks: tasks.map(item => ({ ...item, projectTitle: map[item.projectId] ? map[item.projectId].title : '原事件不存在', parentProjectDeleted: !!(map[item.projectId] && map[item.projectId].deletedAt) })) }); }
 async function get(payload, context) { const openid = auth.getUserId(context); const id = validateObjectId(payload.taskId); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!id.valid) return fail('INVALID_PARAMS', id.message); const r = await db.collection('tasks').doc(id.value).get().catch(() => ({ data: null })); const task = r.data; const project = task && await ownedProject(openid, task.projectId); return task && project && !task.deletedAt ? success({ task }) : fail('NOT_FOUND', '任务不存在或无权访问'); }
 async function update(payload, context) {

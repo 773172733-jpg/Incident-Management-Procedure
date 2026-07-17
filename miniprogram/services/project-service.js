@@ -12,6 +12,8 @@ function archive(projectId) { return callApi('project', 'archive', { projectId }
 function restoreFromArchive(projectId) { return callApi('project', 'restoreFromArchive', { projectId }); }
 function softDelete(projectId) { return callApi('project', 'softDelete', { projectId }); }
 function restore(projectId) { return callApi('project', 'restore', { projectId }); }
+function purge(projectId) { return callApi('project', 'purge', { projectId }); }
+function clearTrash() { return callApi('project', 'clearTrash'); }
 function recalculateProgress(projectId) { return callApi('project', 'recalculateProgress', { projectId }); }
 
 function complete(projectId, confirmEarly = false) { return callApi('project', 'complete', { projectId, confirmEarly }); }
@@ -19,6 +21,6 @@ function reopen(projectId) { return callApi('project', 'reopen', { projectId });
 
 module.exports = {
   create, update, get, list, listDeleted,
-  archive, restoreFromArchive, softDelete, restore,
+  archive, restoreFromArchive, softDelete, restore, purge, clearTrash,
   recalculateProgress, complete, reopen
 };

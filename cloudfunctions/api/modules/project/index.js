@@ -11,6 +11,14 @@ const { writeActivityLog } = require('../../common/logger');
 const { recalculateProjectProgress } = require('../../common/project-progress');
 const { getAll } = require('../../common/query');
 const { cancelTaskReminder, syncTaskReminder } = require('../../common/reminder');
+const { isProjectInTrash, withProjectCompletionState } = require('../../common/project-state');
+const {
+  CascadeDeleteError,
+  clearOwnedTrash,
+  emptyCounts,
+  enforceProjectTrashLimit,
+  purgeProjectData
+} = require('../../common/trash-cleanup');
 
 async function safelyCancelTaskReminder(task) {
   try { await cancelTaskReminder(db, task.ownerId, task._id); }
@@ -50,6 +58,11 @@ async function getOwnedProject(projectId, openid) {
   return project && permission.canReadProject(openid, project) ? project : null;
 }
 
+async function getProjectById(projectId) {
+  const res = await db.collection('projects').where({ _id: projectId }).limit(1).get();
+  return res.data && res.data[0] ? res.data[0] : null;
+}
+
 async function create(payload, context) {
   const openid = auth.getUserId(context); if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
   const parsed = cleanProjectInput(payload); if (parsed.error) return fail('INVALID_PARAMS', parsed.error);
@@ -71,7 +84,7 @@ async function get(payload, context) {
   if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份'); if (!check.valid) return fail('INVALID_PARAMS', check.message);
   const project = await getOwnedProject(check.value, openid);
   if (!project || project.deletedAt) return fail('NOT_FOUND', '事件不存在或无权访问');
-  return success({ project });
+  return success({ project: withProjectCompletionState(project) });
 }
 
 async function list(payload, context) {
@@ -86,7 +99,7 @@ async function list(payload, context) {
   const pageSize = Math.min(100, Math.max(1, Number(payload.pageSize) || 20));
   const skip = (page - 1) * pageSize;
   const res = await db.collection('projects').where(filter).orderBy('updatedAt', 'desc').skip(skip).limit(pageSize).get();
-  return success({ projects: res.data });
+  return success({ projects: res.data.map(withProjectCompletionState) });
 }
 
 async function listDeleted(payload, context) {
@@ -96,7 +109,11 @@ async function listDeleted(payload, context) {
     ownerId: openid,
     deletedAt: _.neq(null)
   }).orderBy('updatedAt', 'desc'));
-  return success({ projects: rows.filter(project => project && project.deletedAt) });
+  return success({
+    projects: rows
+      .filter(project => project && project.deletedAt)
+      .map(withProjectCompletionState)
+  });
 }
 
 async function update(payload, context) {
@@ -134,7 +151,18 @@ async function softDelete(payload, context) {
   const tasks = await getAll(db.collection('tasks').where({ projectId: project._id, deletedAt: _.eq(null) })).catch(error => { console.warn('[project.softDelete] task reminder lookup failed:', error.message); return []; });
   await Promise.all(tasks.map(task => safelyCancelTaskReminder(task)));
   await writeActivityLog({ projectId: project._id, operatorId: openid, action: 'project.deleted', targetType: 'project', targetId: project._id, targetTitleSnapshot: project.title, visibleTo: [openid] });
-  return success(null, '事件已移入回收站');
+  let retention = null;
+  let retentionWarning = '';
+  try {
+    retention = await enforceProjectTrashLimit(db, openid, 100);
+  } catch (error) {
+    retentionWarning = '回收站自动清理暂未完成，将在下次删除时重试';
+    console.error('[project.softDelete] retention cleanup failed:', JSON.stringify({
+      collection: error.collection || '',
+      message: error.message
+    }));
+  }
+  return success({ retention, retentionWarning }, '事件已移入回收站');
 }
 
 async function restore(payload, context) {
@@ -147,6 +175,77 @@ async function restore(payload, context) {
   await Promise.all(tasks.map(task => safelySyncTaskReminder(task, { ...project, deletedAt: null })));
   await writeActivityLog({ projectId: project._id, operatorId: openid, action: 'project.restored', targetType: 'project', targetId: project._id, targetTitleSnapshot: project.title, visibleTo: [openid] });
   return success(null, '事件已恢复');
+}
+
+function purgeFailure(error, code, operation) {
+  const collection = error instanceof CascadeDeleteError ? error.collection : '';
+  console.error('[project.' + operation + '] failed:', JSON.stringify({
+    collection,
+    message: error && error.message
+  }));
+  const labelMap = {
+    projects: '大事件',
+    tasks: '分支任务',
+    project_groups: '分组',
+    reminders: '提醒',
+    activity_logs: '动态记录'
+  };
+  const target = labelMap[collection] || '关联数据';
+  return fail(code, operation === 'purge'
+    ? '永久删除未完成（' + target + '），请稍后重试'
+    : '清空回收站未完成（' + target + '），请稍后重试', {
+    counts: error && error.counts ? error.counts : emptyCounts()
+  });
+}
+
+async function purge(payload, context) {
+  const openid = auth.getUserId(context);
+  const check = validateObjectId(payload.projectId);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  if (!check.valid) return fail('INVALID_PARAMS', check.message);
+
+  const project = await getProjectById(check.value);
+  if (project && !permission.canManageProject(openid, project)) {
+    return fail('NOT_FOUND', '大事件不存在或无权永久删除');
+  }
+  if (project && !isProjectInTrash(project)) {
+    return fail('PROJECT_NOT_DELETED', '只能永久删除回收站中的大事件');
+  }
+  if (!project) {
+    return success({
+      counts: emptyCounts(),
+      alreadyPurged: true
+    }, '大事件已永久删除');
+  }
+
+  try {
+    const counts = await purgeProjectData(db, {
+      projectId: check.value,
+      ownerId: openid,
+      verifiedOwner: true
+    });
+    return success({
+      counts,
+      alreadyPurged: false
+    }, '大事件已永久删除');
+  } catch (error) {
+    return purgeFailure(error, 'PURGE_FAILED', 'purge');
+  }
+}
+
+async function clearTrash(payload, context) {
+  const openid = auth.getUserId(context);
+  if (!openid) return fail('UNAUTHORIZED', '无法获取用户身份');
+  const counts = emptyCounts();
+
+  try {
+    Object.assign(counts, await clearOwnedTrash(db, openid));
+    return success({ counts }, Object.values(counts).some(Boolean)
+      ? '回收站已清空'
+      : '回收站已经是空的');
+  } catch (error) {
+    return purgeFailure(error, 'TRASH_CLEAR_FAILED', 'clearTrash');
+  }
 }
 
 async function complete(payload, context) {
@@ -310,7 +409,7 @@ async function recalculateProgressAction(payload, context) {
 
 module.exports = {
   create, get, list, listDeleted, update,
-  archive, restoreFromArchive, softDelete, restore,
+  archive, restoreFromArchive, softDelete, restore, purge, clearTrash,
   complete, reopen,
   recalculateProgress: recalculateProgressAction
 };
