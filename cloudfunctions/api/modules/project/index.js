@@ -7,6 +7,7 @@ const permission = require('../../common/permission');
 const { success, fail } = require('../../common/response');
 const { validateProjectTitle, validateTimeMode, validateObjectId } = require('../../common/validator');
 const { TIME_MODE, PROJECT_STATUS, TASK_STATUS } = require('../../common/constants');
+const { normalizeProjectIcon } = require('../../common/project-icon');
 const { writeActivityLog } = require('../../common/logger');
 const {
   recalculateProjectProgress,
@@ -71,6 +72,8 @@ function cleanProjectInput(payload) {
   const description = typeof payload.description === 'string' ? payload.description.trim().slice(0, 1000) : '';
   const startAt = payload.startAt ? new Date(payload.startAt) : null;
   const endAt = payload.endAt ? new Date(payload.endAt) : null;
+  const projectIcon = normalizeProjectIcon(payload.iconType, payload.iconValue);
+  if (projectIcon.error) return { error: projectIcon.error };
   if (timeMode.value === TIME_MODE.RANGE && (!isValidDate(startAt) || !isValidDate(endAt) || endAt < startAt)) return { error: '请正确设置起止日期' };
   if (timeMode.value === TIME_MODE.ONGOING && !isValidDate(startAt)) return { error: '请设置开始日期' };
   return { data: {
@@ -79,8 +82,7 @@ function cleanProjectInput(payload) {
     endAt: timeMode.value === TIME_MODE.RANGE ? endAt : null,
     icon: typeof payload.icon === 'string' ? payload.icon.slice(0, 24) : 'circle',
     themeColor: typeof payload.themeColor === 'string' ? payload.themeColor.slice(0, 16) : '#FF6B35',
-    iconType: payload.iconType === 'emoji' ? 'emoji' : 'text',
-    iconValue: typeof payload.iconValue === 'string' ? payload.iconValue.trim().slice(0, 4) : ''
+    ...projectIcon.data
   }};
 }
 function isValidDate(value) { return value instanceof Date && !Number.isNaN(value.getTime()); }
