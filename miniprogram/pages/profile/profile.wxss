@@ -1,5 +1,5 @@
 @import '../../styles/variables.wxss';@import '../../styles/common.wxss';
-.profile-page{padding-top:env(safe-area-inset-top);padding-bottom:48rpx}
+.profile-page{padding-top:env(safe-area-inset-top);padding-bottom:calc(150rpx + env(safe-area-inset-bottom))}
 .user-card,.settings-card,.about-card{margin:0 32rpx;border-radius:24rpx;background:#fff;box-shadow:0 6rpx 20rpx rgba(31,35,41,.045)}
 .user-card{display:flex;align-items:center;padding:26rpx}
 .avatar{width:94rpx;height:94rpx;border-radius:28rpx;background:#FFF1EA;flex-shrink:0}.avatar--placeholder{position:relative}.avatar-head{position:absolute;left:34rpx;top:19rpx;width:28rpx;height:28rpx;border-radius:50%;background:#FFB392}.avatar-body{position:absolute;left:23rpx;bottom:16rpx;width:50rpx;height:28rpx;border-radius:28rpx 28rpx 10rpx 10rpx;background:#FF6B35}
