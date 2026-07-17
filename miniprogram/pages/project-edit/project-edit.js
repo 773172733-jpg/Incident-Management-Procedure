@@ -1,5 +1,10 @@
 const service = require('../../services/project-service');
 const validator = require('../../utils/validator');
+const {
+  DEFAULT_PROJECT_IMAGE_ICON,
+  PROJECT_ICON_OPTIONS,
+  projectImageIconSrc
+} = require('../../constants/project-icons');
 
 function formatLocalDate(value) {
   const date = new Date(value);
@@ -12,8 +17,10 @@ Page({
   data: {
     id: '', title: '', description: '', timeMode: 'none', startAt: '', endAt: '',
     saving: false, loading: false, error: '',
-    icon: 'circle', iconType: 'text', iconValue: '', themeColor: '#FF6B35',
-    emojis: ['🏠','📚','✏️','🎨','💪','🎵','🌍','🛒','💼','🎮','💡','🌱','🍳','🎬','📷','🔧','🎯','🏃','🌿','💻'],
+    icon: 'circle', iconType: 'image', iconValue: DEFAULT_PROJECT_IMAGE_ICON,
+    selectedIconSrc: projectImageIconSrc('image', DEFAULT_PROJECT_IMAGE_ICON),
+    themeColor: '#FF6B35',
+    iconOptions: PROJECT_ICON_OPTIONS,
     themeColors: ['#FF6B35', '#E5484D', '#D97706', '#2E8B57', '#168C8C', '#3478F6', '#6E56CF', '#6B7280']
   },
   async onLoad(query) {
@@ -30,6 +37,7 @@ Page({
       themeColor: project.themeColor || '#FF6B35',
       iconType: project.iconType || 'text',
       iconValue: project.iconValue || '',
+      selectedIconSrc: projectImageIconSrc(project.iconType, project.iconValue),
       startAt: project.startAt ? formatLocalDate(project.startAt) : '',
       endAt: project.endAt ? formatLocalDate(project.endAt) : '',
       loading: false,
@@ -44,14 +52,18 @@ Page({
       : timeMode === 'ongoing' ? { endAt: '' } : {};
     this.setData({ timeMode, ...dates });
   },
-  // 再次点击已选图标可取消选择，保存为现有空值格式（iconType:'text' + iconValue:''）
   chooseIcon(e) {
-    const v = e.currentTarget.dataset.value;
-    if (this.data.iconValue === v) {
-      this.setData({ iconType: 'text', iconValue: '' });
+    const type = e.currentTarget.dataset.type;
+    const value = e.currentTarget.dataset.value;
+    if (this.data.iconType === type && this.data.iconValue === value) {
+      this.setData({ iconType: 'text', iconValue: '', selectedIconSrc: '' });
       return;
     }
-    this.setData({ iconType: 'emoji', iconValue: v });
+    this.setData({
+      iconType: type,
+      iconValue: value,
+      selectedIconSrc: projectImageIconSrc(type, value)
+    });
   },
   chooseThemeColor(e) { this.setData({ themeColor: e.currentTarget.dataset.value }); },
   retry() { this.onLoad({ id: this.data.id }); },

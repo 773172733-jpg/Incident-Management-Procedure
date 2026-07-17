@@ -1,6 +1,7 @@
 const calendarService = require('../../services/calendar-service');
 const projectService = require('../../services/project-service');
 const taskService = require('../../services/task-service');
+const { projectIconView } = require('../../constants/project-icons');
 
 Page({
   data: {
@@ -54,7 +55,13 @@ Page({
       return { key, day: date.getDate(), inMonth: date.getMonth() === month, isToday: key === todayKey, selected: key === this.data.selectedKey, marker: markerFor(counts) };
     });
     const selectedEntries = this.data.entries.filter(entry => entry.dateKeys.includes(this.data.selectedKey));
-    const selectedProjects = selectedEntries.filter(entry => entry.entryType === 'project').sort(projectSort);
+    const selectedProjects = selectedEntries
+      .filter(entry => entry.entryType === 'project')
+      .sort(projectSort)
+      .map(entry => ({
+        ...entry,
+        ...projectIconView(entry, (entry.title || '事').slice(0, 1))
+      }));
     const selectedTasks = selectedEntries.filter(entry => entry.entryType === 'task');
     const counts = this.data.monthData[this.data.selectedKey] || {};
     this.setData({ days, selectedEntries, selectedProjects, selectedTasks, summary: { total: selectedEntries.length, projectCount: selectedProjects.length, taskCount: selectedTasks.length, activeCount: counts.activeCount || 0, completedCount: counts.completedCount || 0 }, monthEntryCount: this.data.entries.length, monthTitle: `${year}年${month + 1}月`, selectedLabel: selectedDateLabel(this.data.selectedKey) });

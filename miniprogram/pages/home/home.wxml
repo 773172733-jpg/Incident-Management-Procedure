@@ -18,7 +18,7 @@
   <view wx:else class="project-list">
     <view wx:for="{{visibleItems}}" wx:key="_id" class="project-card {{item.allBranchesCompleted?'project-card--done':''}}" data-id="{{item._id}}" bindtap="detail">
       <view class="project-head">
-        <view class="project-icon" style="color:{{item.themeColor||'#FF6B35'}};background:{{item.themeColor||'#FF6B35'}}1A">{{item.iconText}}</view>
+        <view class="project-icon" style="color:{{item.themeColor||'#FF6B35'}};background:{{item.themeColor||'#FF6B35'}}1A"><image wx:if="{{item.iconSrc}}" class="project-icon__image" src="{{item.iconSrc}}" mode="aspectFit"></image><text wx:else>{{item.iconText}}</text></view>
         <view class="project-main">
           <view class="project-title-row"><text class="project-title">{{item.title}}</text><text class="status status--{{item.status}}">{{item.statusText}}</text></view>
           <text class="project-time">{{item.timeText}}</text>

@@ -3,6 +3,7 @@ const taskService = require('../../services/task-service');
 const groupService = require('../../services/group-service');
 const format = require('../../utils/format');
 const { getEffectiveDueAt, isTaskOverdue } = require('../../utils/task-time');
+const { projectIconView } = require('../../constants/project-icons');
 
 Page({
   data: {
@@ -66,15 +67,16 @@ Page({
     const nearest = validTasks
       .filter(item => item.status !== 'completed' && item.status !== 'approved' && item.status !== 'closed_by_parent' && getEffectiveDueAt(item))
       .sort((a, b) => getEffectiveDueAt(a) - getEffectiveDueAt(b))[0];
+    const iconView = projectIconView(project, (project.title || '事').slice(0, 1));
     return {
       ...project,
+      ...iconView,
       progressCache: progress,
       completedTaskCountCache: completedTaskCount,
       taskCountCache: taskCount,
       allBranchesCompleted: taskCount > 0 && completedTaskCount === taskCount,
       timeText: format.projectTimeText(project),
       statusText: format.statusLabel(project.status),
-      iconText: project.iconValue || (project.title || '事').slice(0, 1),
       nearestTaskText: project.status === 'completed'
         ? `已结束 · 已完成 ${completedTaskCount}/${taskCount}`
         : nearest ? `最近截止：${nearest.title}` : (validTasks.length ? '暂无临近任务' : '还没有分支任务')

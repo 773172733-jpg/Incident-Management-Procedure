@@ -1,14 +1,14 @@
 const projects = require("../../services/project-service");
 const tasks = require("../../services/task-service");
 const { projectTimeText, progressText, statusLabel, priorityLabel, taskTimeText } = require("../../utils/format");
+const { projectIconView } = require("../../constants/project-icons");
 
 // 新建按钮按压回弹接近结束时再跳转（单个定时器，不叠加）
 const CREATE_NAVIGATE_DELAY = 170;
 
-function buildProgressFillStyle(progressValue, themeColor) {
-  const theme = themeColor || "#FF6B35";
-  if (progressValue >= 100) return "background:#22B573";
-  return "background:linear-gradient(90deg," + theme + "66," + theme + ")";
+function buildProgressFillStyle(progressValue) {
+  if (progressValue >= 100) return "background:#F28C28";
+  return "background:linear-gradient(90deg,#FFD8A8 0%,#F7B267 45%,#F28C28 100%)";
 }
 
 Page({
@@ -58,6 +58,7 @@ Page({
         ? item.taskCount
         : item.taskCountCache) || 0;
       const progressValue = Number(item.progressCache) || 0;
+      const iconView = projectIconView(item, (item.title || '事').slice(0, 1));
       return {
         ...item,
         _id: item._id,
@@ -72,12 +73,11 @@ Page({
         timeText: projectTimeText(item),
         progressText: progressText(completed, total),
         countText: completed + "/" + total,
-        iconText: item.iconValue || (item.title || '事').slice(0, 1),
+        ...iconView,
         progressValue,
-        progressFillStyle: buildProgressFillStyle(progressValue, item.themeColor),
+        progressFillStyle: buildProgressFillStyle(progressValue),
         statusText: statusLabel(item.status),
-        allBranchesCompleted: item.allBranchesCompleted === true
-          || (total > 0 && completed === total),
+        allBranchesCompleted: item.allBranchesCompleted === true,
         previewLoaded: false,
         previewLoading: false,
         previewError: false,

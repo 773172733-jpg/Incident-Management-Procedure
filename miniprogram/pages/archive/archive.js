@@ -1,6 +1,7 @@
 const projectService = require('../../services/project-service');
 const { projectTimeText } = require('../../utils/format');
 const { formatDateTime } = require('../../utils/date');
+const { projectIconView } = require('../../constants/project-icons');
 
 Page({
   data: { items: [], loading: true, error: '', operatingId: '' },
@@ -11,7 +12,7 @@ Page({
     if (!res.success) { console.error('[archive] list failed:', res); return this.setData({ loading: false, error: res.message || '归档列表加载失败' }); }
     const items = (res.data.projects || []).map(item => ({
       ...item,
-      iconText: item.iconValue || (item.title || '事').slice(0, 1),
+      ...projectIconView(item, (item.title || '事').slice(0, 1)),
       timeText: projectTimeText(item),
       stateText: item.completedAt ? '已结束并归档' : '已归档',
       primaryText: item.completedAt ? '重新打开' : '恢复',
