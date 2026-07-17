@@ -26,13 +26,66 @@ var ACTION_META = {
   'user.created':        { icon: 'plus',     tone: 'info',    label: '\u52a0\u5165\u4e86\u4e8b\u4ef6\u6811' }
 };
 function getMeta(a) { return ACTION_META[a] || { icon: 'circle', tone: 'gray', label: '\u6267\u884c\u4e86\u4e00\u9879\u64cd\u4f5c' }; }
-function formatDateLabel(ca) {
-  if (!ca) return ''; var d = new Date(ca); if (isNaN(d.getTime())) return '';
-  var t = new Date(), td = new Date(t.getFullYear(),t.getMonth(),t.getDate());
-  var yd = new Date(td.getTime()-86400000), ld = new Date(d.getFullYear(),d.getMonth(),d.getDate());
-  var df = Math.floor((td-ld)/86400000);
-  if (df===0) return '\u4eca\u5929'; if (df===1) return '\u6628\u5929'; if (df<7) return df+'\u5929\u524d';
-  return (d.getMonth()+1)+'\u6708'+d.getDate()+'\u65e5';
+function localDateKey(ca) {
+  if (!ca) return '';
+  var d = new Date(ca);
+  if (isNaN(d.getTime())) return '';
+  var p = function(n) { return String(n).padStart(2, '0'); };
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+function formatDateLabel(ca, now) {
+  if (!ca) return '';
+  var d = new Date(ca);
+  if (isNaN(d.getTime())) return '';
+  var current = now ? new Date(now) : new Date();
+  if (isNaN(current.getTime())) current = new Date();
+  var todayKey = localDateKey(current);
+  var yesterday = new Date(current.getFullYear(), current.getMonth(), current.getDate() - 1);
+  var key = localDateKey(d);
+  if (key === todayKey) return '\u4eca\u5929';
+  if (key === localDateKey(yesterday)) return '\u6628\u5929';
+  var weekdays = ['\u5468\u65e5','\u5468\u4e00','\u5468\u4e8c','\u5468\u4e09','\u5468\u56db','\u5468\u4e94','\u5468\u516d'];
+  return (d.getMonth() + 1) + '\u6708' + d.getDate() + '\u65e5 ' + weekdays[d.getDay()];
+}
+function mergeUniqueLogs(existing, incoming) {
+  var map = {};
+  (existing || []).concat(incoming || []).forEach(function(item) {
+    var id = item && (item.id || item._id);
+    if (id) map[id] = item;
+  });
+  return Object.keys(map).map(function(id) { return map[id]; }).sort(function(left, right) {
+    var lt = new Date(left.createdAt).getTime();
+    var rt = new Date(right.createdAt).getTime();
+    if (!Number.isFinite(lt)) lt = -Infinity;
+    if (!Number.isFinite(rt)) rt = -Infinity;
+    return rt - lt || String(left.id || left._id).localeCompare(String(right.id || right._id));
+  });
+}
+function groupLogsByDay(logs, now) {
+  var groups = [];
+  var map = {};
+  mergeUniqueLogs([], logs).forEach(function(log) {
+    var key = localDateKey(log.createdAt);
+    if (!key) return;
+    if (!map[key]) {
+      map[key] = {
+        key: key,
+        label: formatDateLabel(log.createdAt, now),
+        count: 0,
+        items: []
+      };
+      groups.push(map[key]);
+    }
+    map[key].items.push(log);
+    map[key].count += 1;
+  });
+  return groups;
+}
+function resolveExpandedDateKey(groups, currentKey, reset) {
+  if (!groups || !groups.length) return '';
+  if (reset) return groups[0].key;
+  if (!currentKey) return '';
+  return groups.some(function(group) { return group.key === currentKey; }) ? currentKey : groups[0].key;
 }
 function formatTimeText(ca) {
   if (!ca) return ''; var d=new Date(ca); if(isNaN(d.getTime()))return '';
@@ -51,4 +104,13 @@ function formatChanges(b,a) {
   return c.slice(0,3).join('\\n');
   function fsd(v){if(!v)return'\u672a\u8bbe\u7f6e';var d=new Date(v);if(isNaN(d.getTime()))return String(v).substring(0,10);return(d.getMonth()+1)+'\u6708'+d.getDate()+'\u65e5';}
 }
-module.exports={getMeta,formatDateLabel,formatTimeText,formatChanges};
+module.exports={
+  getMeta,
+  localDateKey,
+  formatDateLabel,
+  formatTimeText,
+  formatChanges,
+  mergeUniqueLogs,
+  groupLogsByDay,
+  resolveExpandedDateKey
+};

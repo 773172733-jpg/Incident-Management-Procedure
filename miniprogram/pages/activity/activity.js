@@ -5,7 +5,7 @@ const aFmt = require('../../utils/activity-format');
 Page({
   data: {
     tab: 'pending', logs: [], page: 1, pageSize: 20, hasMore: false,
-    loading: true, refreshing: false, loadingMore: false, error: '', hasLoaded: false,
+    loading: true, refreshing: false, loadingMore: false, error: '', loadMoreError: '', hasLoaded: false,
     filter: 'all',
     filterOptions: [
       { key: 'all', label: '全部' },
@@ -13,7 +13,7 @@ Page({
       { key: 'task', label: '分支任务' },
       { key: 'group', label: '分组' }
     ],
-    dateGroups: [],
+    dateGroups: [], expandedDateKey: '',
     summary: { overdue: 0, today: 0, upcoming: 0, total: 0 },
     sections: { overdue: [], today: [], upcoming: [] },
     operatingTaskId: '', unreadReminders: [], unreadCount: 0, reminderError: '', markingReminders: false
@@ -116,30 +116,50 @@ Page({
     } finally { this.setData({ markingReminders: false }); }
   },
   async loadLogs(reset) {
+    if (reset) this._logRequestVersion = (this._logRequestVersion || 0) + 1;
+    var requestVersion = this._logRequestVersion || 0;
+    var page = reset ? 1 : this.data.page;
     try {
-      if (reset) this.setData({ logs: [], page: 1, hasMore: false });
-      var page = reset ? 1 : this.data.page; if (page < 1) page = 1;
-      this.setData({ loading: page===1, loadingMore: page>1, error: '' });
+      if (reset) this.setData({ logs: [], dateGroups: [], expandedDateKey: '', page: 1, hasMore: false, loadMoreError: '' });
+      if (page < 1) page = 1;
+      this.setData({ loading: page===1, loadingMore: page>1, error: '', loadMoreError: '' });
       var res = await activityService.list({ page, pageSize: this.data.pageSize, type: this.data.filter });
-      if (!res.success) { console.error('[activity] logs:', res); if (page===1) this.setData({ loading: false, error: res.message||'操作记录加载失败' }); else this.setData({ loadingMore: false }); return; }
+      if (requestVersion !== (this._logRequestVersion || 0)) return;
+      if (!res.success) {
+        console.error('[activity] logs:', res);
+        if (page===1) this.setData({ loading: false, error: res.message||'操作记录加载失败' });
+        else this.setData({ loadingMore: false, loadMoreError: res.message||'加载更多失败' });
+        return;
+      }
       var d = res.data||{}; var nl = d.list||[];
-      if (page===1) this.setData({ logs: nl, hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false });
-      else this.setData({ logs: this.data.logs.concat(nl), hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false });
-      this.buildDateGroups();
-    } catch (e) { console.error('[activity] logs error:', e); this.setData({ loading: false, error: '操作记录加载失败' }); }
+      var logs = aFmt.mergeUniqueLogs(page===1 ? [] : this.data.logs, nl);
+      this.setData({ logs: logs, hasMore: !!d.hasMore, page: page+1, loading: false, loadingMore: false, loadMoreError: '' });
+      this.buildDateGroups(page===1);
+    } catch (e) {
+      if (requestVersion !== (this._logRequestVersion || 0)) return;
+      console.error('[activity] logs error:', e);
+      if (page===1) this.setData({ loading: false, error: '操作记录加载失败' });
+      else this.setData({ loadingMore: false, loadMoreError: '加载更多失败' });
+    }
   },
   loadMore() { if (this.data.loadingMore || !this.data.hasMore) return; this.loadLogs(false); },
   chooseFilter(e) { this.setData({ filter: e.currentTarget.dataset.key }); this.loadLogs(true); },
-  buildDateGroups() {
-    var logs = this.data.logs; var groups = []; var cl = ''; var ci = [];
-    for (var i=0;i<logs.length;i++) {
-      var label = aFmt.formatDateLabel(logs[i].createdAt);
-      if (label !== cl) { if (ci.length>0) groups.push({ label: cl, items: ci }); cl = label; ci = []; }
-      var meta = aFmt.getMeta(logs[i].action);
-      ci.push({ id: logs[i].id, action: logs[i].action, icon: meta.icon, tone: meta.tone, label: meta.label, title: logs[i].title, projectTitle: logs[i].projectTitle, targetType: logs[i].targetType, targetId: logs[i].targetId, projectId: logs[i].projectId, taskId: logs[i].taskId, groupId: logs[i].groupId, changeText: aFmt.formatChanges(logs[i].before, logs[i].after), timeText: aFmt.formatTimeText(logs[i].createdAt), canNavigate: logs[i].canNavigate, targetExists: logs[i].targetExists });
-    }
-    if (ci.length>0) groups.push({ label: cl, items: ci });
-    this.setData({ dateGroups: groups });
+  buildDateGroups(reset) {
+    var groups = aFmt.groupLogsByDay(this.data.logs).map(function(group) {
+      return {
+        ...group,
+        items: group.items.map(function(log) {
+          var meta = aFmt.getMeta(log.action);
+          return { id: log.id, action: log.action, icon: meta.icon, tone: meta.tone, label: meta.label, title: log.title, projectTitle: log.projectTitle, targetType: log.targetType, targetId: log.targetId, projectId: log.projectId, taskId: log.taskId, groupId: log.groupId, changeText: aFmt.formatChanges(log.before, log.after), timeText: aFmt.formatTimeText(log.createdAt), canNavigate: log.canNavigate, targetExists: log.targetExists };
+        })
+      };
+    });
+    var expandedDateKey = aFmt.resolveExpandedDateKey(groups, this.data.expandedDateKey, reset === true);
+    this.setData({ dateGroups: groups, expandedDateKey: expandedDateKey });
+  },
+  toggleDateGroup(e) {
+    var key = e.currentTarget.dataset.key;
+    this.setData({ expandedDateKey: this.data.expandedDateKey === key ? '' : key });
   },
   goToTarget(e) {
     var item = e.currentTarget.dataset.item;

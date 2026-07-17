@@ -12,6 +12,7 @@ const { validateObjectId } = require('../../common/validator');
 const { getAll } = require('../../common/query');
 const { TASK_STATUS } = require('../../common/constants');
 const { getEffectiveDueAt } = require('../../common/task-time');
+const { recentActivityFilter } = require('../../common/activity-retention');
 const PS_DEF = 20, PS_MAX = 50;
 const TFM = { all: null, project: 'project', task: 'task', group: 'group' };
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -135,13 +136,12 @@ async function list(payload, context) {
     const tt = TFM[payload.type] || null;
     if (tt) filter.targetType = tt;
     if (payload.projectId) { const ck = validateObjectId(payload.projectId); if (ck.valid) filter.projectId = ck.value; }
-    if (payload.startAt) filter.createdAt = _.gte(new Date(payload.startAt));
-    if (payload.endAt) { const ef = _.lte(new Date(payload.endAt)); filter.createdAt = filter.createdAt ? _.and([filter.createdAt, ef]) : ef; }
-    const res = await db.collection('activity_logs').where(filter).orderBy('createdAt', 'desc').skip(skip).limit(pageSize).get();
-    const nx = await db.collection('activity_logs').where(filter).orderBy('createdAt', 'desc').skip(skip + pageSize).limit(1).get();
+    const recentFilter = recentActivityFilter(_, filter);
+    const res = await db.collection('activity_logs').where(recentFilter).orderBy('createdAt', 'desc').skip(skip).limit(pageSize).get();
+    const nx = await db.collection('activity_logs').where(recentFilter).orderBy('createdAt', 'desc').skip(skip + pageSize).limit(1).get();
     const list = await enrichLogs(res.data);
     let total = -1;
-    try { const cr = await db.collection('activity_logs').where(filter).count(); total = cr.total; } catch (e) {}
+    try { const cr = await db.collection('activity_logs').where(recentFilter).count(); total = cr.total; } catch (e) {}
     return success({ list, page, pageSize, hasMore: nx.data.length > 0, total: total >= 0 ? total : undefined });
   } catch (err) { console.error('[activity.list]', err); return fail('INTERNAL_ERROR', '查询失败'); }
 }
@@ -156,7 +156,7 @@ async function listByProject(payload, context) {
     const page = Math.max(1, Number(payload.page) || 1);
     const pageSize = Math.min(PS_MAX, Math.max(1, Number(payload.pageSize) || PS_DEF));
     const skip = (page - 1) * pageSize;
-    const filter = { projectId: ck.value };
+    const filter = recentActivityFilter(_, { projectId: ck.value });
     const res = await db.collection('activity_logs').where(filter).orderBy('createdAt', 'desc').skip(skip).limit(pageSize).get();
     const nx = await db.collection('activity_logs').where(filter).orderBy('createdAt', 'desc').skip(skip + pageSize).limit(1).get();
     return success({ list: await enrichLogs(res.data), page, pageSize, hasMore: nx.data.length > 0 });

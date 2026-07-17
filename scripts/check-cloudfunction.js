@@ -7,6 +7,7 @@ const { spawnSync } = require('child_process');
 
 const root = path.resolve(__dirname, '..');
 const apiRoot = path.join(root, 'cloudfunctions', 'api');
+const activityCleanupRoot = path.join(root, 'cloudfunctions', 'activity-cleanup-worker');
 const errors = [];
 const checks = [];
 
@@ -159,6 +160,33 @@ for (const call of serviceCalls) {
 }
 if (!errors.some(message => message.startsWith('前端 action'))) {
   pass(`前端 action 映射完整（${serviceCalls.length} 个调用）`);
+}
+
+try {
+  const workerPackage = readJson(path.join(activityCleanupRoot, 'package.json'));
+  const workerConfig = readJson(path.join(activityCleanupRoot, 'config.json'));
+  const workerIndex = path.join(activityCleanupRoot, workerPackage.main || 'index.js');
+  if (!fs.existsSync(workerIndex)) fail('activity-cleanup-worker 入口文件不存在');
+  else {
+    const syntax = spawnSync(process.execPath, ['--check', workerIndex], { encoding: 'utf8' });
+    if (syntax.status !== 0) fail(`activity-cleanup-worker 入口语法失败：${(syntax.stderr || syntax.stdout).trim()}`);
+    else if (!/exports\.main\s*=\s*async/.test(fs.readFileSync(workerIndex, 'utf8'))) fail('activity-cleanup-worker 未导出 async exports.main');
+    else pass('activity-cleanup-worker 入口有效');
+  }
+  if (!workerPackage.dependencies || !workerPackage.dependencies['wx-server-sdk']) {
+    fail('activity-cleanup-worker 缺少 wx-server-sdk 依赖');
+  } else {
+    pass('activity-cleanup-worker 依赖完整');
+  }
+  const triggers = Array.isArray(workerConfig.triggers) ? workerConfig.triggers : [];
+  const dailyTrigger = triggers.find(trigger => trigger && trigger.name === 'activity_cleanup_daily');
+  if (!dailyTrigger || dailyTrigger.type !== 'timer' || dailyTrigger.config !== '0 20 3 * * * *') {
+    fail('activity-cleanup-worker 每日触发器配置无效');
+  } else {
+    pass('activity-cleanup-worker 每日触发器配置有效');
+  }
+} catch (error) {
+  fail(`activity-cleanup-worker 配置无法解析：${error.message}`);
 }
 
 console.log(checks.map(item => `PASS ${item}`).join('\n'));

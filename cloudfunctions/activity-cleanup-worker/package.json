@@ -1,0 +1,9 @@
+{
+  "name": "activity-cleanup-worker",
+  "version": "1.0.0",
+  "description": "有进度 - 操作记录保留清理",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "^3.0.0"
+  }
+}

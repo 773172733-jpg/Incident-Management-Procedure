@@ -1,0 +1,9 @@
+{
+  "triggers": [
+    {
+      "name": "activity_cleanup_daily",
+      "type": "timer",
+      "config": "0 20 3 * * * *"
+    }
+  ]
+}

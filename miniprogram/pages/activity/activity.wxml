@@ -42,21 +42,26 @@
     <empty-state wx:elif="{{error}}" type="error" title="操作记录加载失败" description="{{error}}" action-text="重新加载" bind:action="retry"></empty-state>
     <empty-state wx:elif="{{!logs.length&&!loading}}" title="还没有动态" description="创建、修改或完成事项后，会留下记录"></empty-state>
     <view wx:else class="activity-timeline">
-      <view wx:for="{{dateGroups}}" wx:key="label" class="timeline-group">
-        <view class="timeline-date">{{item.label}}</view>
-        <view class="timeline-list">
-          <view wx:for="{{item.items}}" wx:key="id" class="timeline-item {{item.canNavigate?'navigable':''}}" data-item="{{item}}" bindtap="goToTarget">
-            <view class="timeline-dot dot-{{item.tone}}"><view class="dot-inner icon-{{item.icon}}"></view></view>
-            <view class="timeline-content">
-              <view class="timeline-main"><text class="timeline-title">{{item.label}} </text><text class="timeline-target-name">{{item.title}}</text><view wx:if="{{item.changeText}}" class="timeline-changes"><text>{{item.changeText}}</text></view></view>
-              <view class="timeline-right"><text class="timeline-time">{{item.timeText}}</text><view wx:if="{{item.canNavigate}}" class="timeline-arrow"></view></view>
+      <view wx:for="{{dateGroups}}" wx:key="key" class="timeline-group">
+        <view class="timeline-date" data-key="{{item.key}}" bindtap="toggleDateGroup">
+          <text class="timeline-date__label">{{item.label}}</text>
+          <view class="timeline-date__meta"><text>{{item.count}}条</text><view class="timeline-date__arrow {{expandedDateKey===item.key?'open':''}}"></view></view>
+        </view>
+        <view class="timeline-list-shell {{expandedDateKey===item.key?'open':''}}">
+          <view class="timeline-list">
+            <view wx:for="{{item.items}}" wx:key="id" class="timeline-item {{item.canNavigate?'navigable':''}}" data-item="{{item}}" bindtap="goToTarget">
+              <view class="timeline-dot dot-{{item.tone}}"><view class="dot-inner icon-{{item.icon}}"></view></view>
+              <view class="timeline-content">
+                <view class="timeline-main"><text class="timeline-title">{{item.label}} </text><text class="timeline-target-name">{{item.title}}</text><view wx:if="{{item.changeText}}" class="timeline-changes"><text>{{item.changeText}}</text></view></view>
+                <view class="timeline-right"><text class="timeline-time">{{item.timeText}}</text><view wx:if="{{item.canNavigate}}" class="timeline-arrow"></view></view>
+              </view>
             </view>
           </view>
         </view>
       </view>
       <view wx:if="{{loadingMore}}" class="load-more-indicator"><view class="loading-spinner"></view><text>加载中...</text></view>
       <view wx:elif="{{!hasMore&&logs.length>0}}" class="load-more-indicator load-more-end"><text>没有更多了</text></view>
-      <view wx:elif="{{!loadingMore&&error}}" class="load-more-indicator load-more-retry" bindtap="retryLoadMore"><text>加载更多失败，点击重试</text></view>
+      <view wx:elif="{{!loadingMore&&loadMoreError}}" class="load-more-indicator load-more-retry" bindtap="retryLoadMore"><text>{{loadMoreError}}，点击重试</text></view>
     </view>
   </block>
 </view>

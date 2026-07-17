@@ -78,6 +78,9 @@
 | operatorId + targetType + createdAt | 类型筛选（事件/任务/分组） | 否 |
 | operatorId + action + createdAt | 动作类型筛选 | 否 |
 | visibleTo + createdAt | 团队版预留 | 否 |
+| createdAt | 每日清理超过30天的操作记录 | 否 |
+
+`activity-cleanup-worker` 跨用户按 `createdAt` 查询过期记录，需创建 `createdAt ASC` 单字段非唯一索引。现有带 `operatorId` 或 `projectId` 前缀的复合索引不能替代该全局清理查询。
 
 ## 创建方式
 

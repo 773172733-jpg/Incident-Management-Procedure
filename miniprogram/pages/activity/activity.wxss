@@ -17,7 +17,13 @@
 .filter.on{background:#FFF1EA;color:#FF6B35;font-weight:600}
 .activity-timeline{padding:0 32rpx 40rpx}
 .timeline-group{margin-bottom:28rpx}
-.timeline-date{padding:18rpx 0 14rpx;color:#1F2329;font-size:27rpx;font-weight:600}
+.timeline-date{display:flex;align-items:center;justify-content:space-between;padding:18rpx 0 14rpx;color:#1F2329}
+.timeline-date__label{font-size:27rpx;font-weight:600}
+.timeline-date__meta{display:flex;align-items:center;color:#8A9099;font-size:21rpx}
+.timeline-date__arrow{width:14rpx;height:14rpx;margin-left:14rpx;border-right:3rpx solid #B8BEC7;border-bottom:3rpx solid #B8BEC7;transform:rotate(45deg);transition:transform .2s ease}
+.timeline-date__arrow.open{transform:rotate(225deg)}
+.timeline-list-shell{max-height:0;overflow:hidden;opacity:0;transition:max-height .2s ease,opacity .2s ease}
+.timeline-list-shell.open{max-height:6000rpx;opacity:1}
 .timeline-list{position:relative}
 .timeline-list::before{content:'';position:absolute;left:55rpx;top:0;bottom:0;width:2rpx;background:#E7E9EC}
 .timeline-item{position:relative;display:flex;align-items:flex-start;margin-bottom:20rpx;padding:18rpx 20rpx;border-radius:20rpx;background:#fff;transition:background .15s}
