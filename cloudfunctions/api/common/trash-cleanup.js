@@ -33,6 +33,15 @@ function mergeCounts(target, source) {
   return target;
 }
 
+function uniqueRows(rows) {
+  const seen = new Set();
+  return (Array.isArray(rows) ? rows : []).filter(row => {
+    if (!row || !row._id || seen.has(row._id)) return false;
+    seen.add(row._id);
+    return true;
+  });
+}
+
 function removeResultCount(result) {
   if (result && result.stats && Number.isFinite(result.stats.removed)) return result.stats.removed;
   if (result && Number.isFinite(result.deleted)) return result.deleted;
@@ -108,6 +117,33 @@ async function deleteDocument(counts, key, db, collectionName, documentId) {
   }
 }
 
+async function deleteKnownIds(counts, key, db, collectionName, ids) {
+  try {
+    counts[key] += await removeIds(
+      db.collection(collectionName),
+      [...new Set((ids || []).filter(Boolean))]
+    );
+  } catch (error) {
+    throw new CascadeDeleteError(collectionName, error, counts);
+  }
+}
+
+async function listByFieldValues(db, collectionName, fieldName, values, fields) {
+  const rows = [];
+  const uniqueValues = [...new Set((values || []).filter(Boolean))];
+
+  for (let offset = 0; offset < uniqueValues.length; offset += DELETE_CONCURRENCY) {
+    const chunk = uniqueValues.slice(offset, offset + DELETE_CONCURRENCY);
+    let query = db.collection(collectionName).where({
+      [fieldName]: db.command.in(chunk)
+    });
+    if (fields) query = query.field(fields);
+    rows.push(...await getAll(query));
+  }
+
+  return uniqueRows(rows);
+}
+
 async function purgeProjectData(db, options) {
   const { projectId, ownerId, verifiedOwner = false, removeProject = true } = options;
   const counts = emptyCounts();
@@ -160,25 +196,76 @@ async function clearOwnedTrash(db, ownerId) {
   const counts = emptyCounts();
   try {
     const deletedProjects = await listOwnedDeletedProjects(db, ownerId);
-    for (const project of deletedProjects) {
-      mergeCounts(counts, await purgeProjectData(db, {
-        projectId: project._id,
-        ownerId,
-        verifiedOwner: true
-      }));
-    }
+    const projectIds = deletedProjects.map(project => project._id).filter(Boolean);
+    const projectIdSet = new Set(projectIds);
 
-    const deletedTasks = await getAll(db.collection('tasks').where({
-      ownerId,
-      deletedAt: db.command.neq(null)
-    }));
-    for (const task of deletedTasks.filter(item => item && item.deletedAt)) {
-      mergeCounts(counts, await purgeTaskData(db, {
-        taskId: task._id,
-        projectId: task.projectId,
-        ownerId
-      }));
-    }
+    const [projectTasks, groups, projectActivities, deletedTasks, ownedReminders] = await Promise.all([
+      listByFieldValues(db, 'tasks', 'projectId', projectIds, {
+        _id: true,
+        projectId: true
+      }),
+      listByFieldValues(db, 'project_groups', 'projectId', projectIds, {
+        _id: true,
+        projectId: true
+      }),
+      listByFieldValues(db, 'activity_logs', 'projectId', projectIds, {
+        _id: true,
+        projectId: true,
+        taskId: true,
+        operatorId: true
+      }),
+      getAll(db.collection('tasks').where({
+        ownerId,
+        deletedAt: db.command.neq(null)
+      }).field({
+        _id: true,
+        projectId: true,
+        ownerId: true,
+        deletedAt: true
+      })),
+      getAll(db.collection('reminders').where({ ownerId }).field({
+        _id: true,
+        projectId: true,
+        taskId: true
+      }))
+    ]);
+
+    const taskRows = uniqueRows([
+      ...projectTasks,
+      ...deletedTasks.filter(task => task && task.deletedAt)
+    ]);
+    const taskIds = taskRows.map(task => task._id);
+    const taskIdSet = new Set(taskIds);
+    const standaloneTaskIds = deletedTasks
+      .filter(task => task && task.deletedAt && !projectIdSet.has(task.projectId))
+      .map(task => task._id);
+    const standaloneTaskIdSet = new Set(standaloneTaskIds);
+    const standaloneActivities = standaloneTaskIds.length
+      ? await getAll(db.collection('activity_logs').where({ operatorId: ownerId }).field({
+        _id: true,
+        projectId: true,
+        taskId: true,
+        operatorId: true
+      }))
+      : [];
+    const activities = uniqueRows([
+      ...projectActivities,
+      ...standaloneActivities.filter(activity => (
+        activity
+        && activity.operatorId === ownerId
+        && standaloneTaskIdSet.has(activity.taskId)
+      ))
+    ]);
+    const reminders = ownedReminders.filter(reminder => (
+      reminder
+      && (projectIdSet.has(reminder.projectId) || taskIdSet.has(reminder.taskId))
+    ));
+
+    await deleteKnownIds(counts, 'reminders', db, 'reminders', reminders.map(item => item._id));
+    await deleteKnownIds(counts, 'activities', db, 'activity_logs', activities.map(item => item._id));
+    await deleteKnownIds(counts, 'groups', db, 'project_groups', groups.map(item => item._id));
+    await deleteKnownIds(counts, 'tasks', db, 'tasks', taskIds);
+    await deleteKnownIds(counts, 'projects', db, 'projects', projectIds);
 
     return counts;
   } catch (error) {
@@ -253,6 +340,7 @@ module.exports = {
   deleteWherePaged,
   emptyCounts,
   enforceProjectTrashLimit,
+  listByFieldValues,
   listOwnedDeletedProjects,
   mergeCounts,
   purgeProjectData,

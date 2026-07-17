@@ -20,6 +20,7 @@ const {
 function matches(row, filter) {
   return Object.entries(filter || {}).every(([key, expected]) => {
     if (expected && expected.__operator === 'neq') return row[key] !== expected.value;
+    if (expected && expected.__operator === 'in') return expected.values.includes(row[key]);
     return row[key] === expected;
   });
 }
@@ -84,7 +85,8 @@ function createDb(seed = {}) {
   return {
     rows,
     command: {
-      neq(value) { return { __operator: 'neq', value }; }
+      neq(value) { return { __operator: 'neq', value }; },
+      in(values) { return { __operator: 'in', values }; }
     },
     collection(name) {
       if (!rows[name]) rows[name] = [];
@@ -252,6 +254,36 @@ async function run() {
   assert.equal(clearDb.rows.tasks.length, 0);
   assert.equal(clearDb.rows.reminders.length, 0);
 
+  const bulkProjectDb = createDb({
+    projects: Array.from({ length: 25 }, (_, index) => ({
+      _id: 'bulk-project-' + index,
+      ownerId: 'u1',
+      deletedAt: new Date()
+    })),
+    tasks: Array.from({ length: 25 }, (_, index) => ({
+      _id: 'bulk-task-' + index,
+      projectId: 'bulk-project-' + index,
+      ownerId: 'u1',
+      deletedAt: null
+    })),
+    project_groups: Array.from({ length: 25 }, (_, index) => ({
+      _id: 'bulk-group-' + index,
+      projectId: 'bulk-project-' + index,
+      ownerId: 'u1'
+    }))
+  });
+  const bulkCleared = await clearOwnedTrash(bulkProjectDb, 'u1');
+  assert.deepEqual(bulkCleared, {
+    projects: 25,
+    tasks: 25,
+    groups: 25,
+    reminders: 0,
+    activities: 0
+  });
+  assert.equal(bulkProjectDb.rows.projects.length, 0);
+  assert.equal(bulkProjectDb.rows.tasks.length, 0);
+  assert.equal(bulkProjectDb.rows.project_groups.length, 0);
+
   const retentionProjects = Array.from({ length: 101 }, (_, index) => ({
     _id: 'p' + index,
     ownerId: 'u1',
@@ -297,6 +329,7 @@ async function run() {
   console.log('PASS paged cascade purge (251 tasks)');
   console.log('PASS purge idempotency and empty cleanup');
   console.log('PASS empty and multi-page trash clearing');
+  console.log('PASS bulk clearing across project-id batches');
   console.log('PASS concurrent trash retention keeps newest 100 projects');
   console.log('PASS in_app and wechat_subscription orphan cleanup');
 }
